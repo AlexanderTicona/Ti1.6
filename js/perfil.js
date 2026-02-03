@@ -18,7 +18,7 @@ function dibujarPerfil() {
     const exajVertical = 10; 
     const rangeK = maxK - minK;
     const rangeZ = (maxZ - minZ) * exajVertical;
-    const scale = Math.min(W / (rangeK * 1), H / (rangeZ * 1)); // Se puede agregar gap vertical //
+    const scale = Math.min(W / (rangeK * 1.1), H / (rangeZ * 1.1)); // Ajustado margen a 1.2
 
     const toX = (k) => (W / 2) + (k - centroK) * scale;
     const toY = (z) => (H / 2) - (z - centroZ) * exajVertical * scale;
@@ -32,19 +32,16 @@ function dibujarPerfil() {
     const gridInpK = document.getElementById('inpGridPerfilK');
     const gridInpZ = document.getElementById('inpGridPerfilZ');
 
-    // Leemos valores o usamos respaldo si están vacíos
-    let gStepK = gridInpK ? parseFloat(gridInpK.value) : 500;
-    let gStepZ = gridInpZ ? parseFloat(gridInpZ.value) : 10;
+    let gStepK = gridInpK ? parseFloat(gridInpK.value) : 100;
+    let gStepZ = gridInpZ ? parseFloat(gridInpZ.value) : 5;
     
-    // Seguridad: Evitar ceros para no colapsar el bucle 'for'
-    if (isNaN(gStepK) || gStepK <= 0) gStepK = 500;
-    if (isNaN(gStepZ) || gStepZ <= 0) gStepZ = 10;
+    if (isNaN(gStepK) || gStepK <= 0) gStepK = 100;
+    if (isNaN(gStepZ) || gStepZ <= 0) gStepZ = 5;
     
     ctx.lineWidth = 1 / cam.zoom;
     ctx.font = `${11 / cam.zoom}px monospace`;
 
-    // HUD: Posiciones fijas para los textos
-    const yTextoFijo = (H - cam.y - 15) / cam.zoom;
+    const yTextoFijo = (H - cam.y - 30) / cam.zoom; // Ajustado a 35 para dar espacio
     const xTextoFijo = (10 - cam.x) / cam.zoom;
 
     // GRILLA VERTICAL (PKs)
@@ -85,16 +82,43 @@ function dibujarPerfil() {
         ctx.stroke();
     });
 
-    // --- 5. MARCADOR DE PK ACTUAL ---
+    // --- 5. MARCADOR DE PK ACTUAL (LÍNEA + PUNTO) ---
     if (appState.secciones && appState.secciones.length > 0) {
         const pkActual = appState.secciones[appState.currentIdx].k;
         const xPos = toX(pkActual);
+
+        // A) Línea Vertical Roja (Guía)
         ctx.setLineDash([5, 5]);
         ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
+        ctx.lineWidth = 1 / cam.zoom;
         ctx.beginPath();
         ctx.moveTo(xPos, toY(gMinZ)); ctx.lineTo(xPos, toY(gMaxZ));
         ctx.stroke();
         ctx.setLineDash([]);
+
+        // B) Puntos Rojos sobre los perfiles (NUEVO)
+        Object.values(appState.perfil.perfiles).forEach(p => {
+            // Buscamos el punto más cercano en este perfil al PK actual
+            // Usamos un rango de búsqueda pequeño (ej. 5m) para encontrar el vértice
+            const pt = p.datos.find(d => Math.abs(d.k - pkActual) < 5); 
+
+            if (pt) {
+                // Dibujar Círculo
+                ctx.fillStyle = "red";
+                ctx.beginPath();
+                // Usamos toX(pt.k) para que el punto quede EXACTAMENTE sobre la línea del perfil
+                // aunque visualmente podría saltar un poquito si la línea vertical no coincide exacta.
+                ctx.arc(toX(pt.k), toY(pt.z), 6 / cam.zoom, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Texto con la Elevación (Z)
+                ctx.fillStyle = "white";
+                ctx.font = `bold ${11 / cam.zoom}px Arial`;
+                ctx.textAlign = "left";
+                // Dibujamos el texto un poco arriba y a la derecha del punto
+                ctx.fillText(`Z: ${pt.z.toFixed(2)}`, toX(pt.k) + 8 / cam.zoom, toY(pt.z) - 8 / cam.zoom);
+            }
+        });
     }
 
     ctx.restore();
