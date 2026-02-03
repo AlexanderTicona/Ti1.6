@@ -1,5 +1,5 @@
 // Archivo: sw.js
-const CACHE_NAME = 'tiqal-v1.6'; // Cambia esto a v1.7 cuando hagas cambios en el código
+const CACHE_NAME = 'tiqal-v1.7'; // Cambia esto a v1.8 cuando hagas cambios en el código
 const ASSETS = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const ASSETS = [
   './js/seccion.js',
   './js/planta.js',
   './js/perfil.js'
+  
 ];
 
 // 1. Instalación: Guarda los archivos en el dispositivo

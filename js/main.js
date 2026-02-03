@@ -336,14 +336,18 @@ function buscarProgresiva(texto) {
 }
 
 /**
- * SISTEMA DE RENDERIZADO Y TAMAÑO
+ * SISTEMA DE RENDERIZADO Y TAMAÑO (Versión Optimizada v1.7)
  */
 function resizeAll() {
     ['visorCanvas', 'canvasPlanta', 'canvasPerfil'].forEach(id => {
         const c = document.getElementById(id);
-        if (c && c.clientWidth > 0) {
-            c.width = c.clientWidth * window.devicePixelRatio;
-            c.height = c.clientHeight * window.devicePixelRatio;
+        if (c && c.parentNode) {
+            const parent = c.parentNode;
+            // Usamos el tamaño del CONTENEDOR (parent) para mayor estabilidad
+            if (parent.clientWidth > 0) {
+                c.width = parent.clientWidth * window.devicePixelRatio;
+                c.height = parent.clientHeight * window.devicePixelRatio;
+            }
         }
     });
     syncAllViews();

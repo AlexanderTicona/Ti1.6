@@ -287,3 +287,47 @@ input[type=range]::-webkit-slider-thumb {
     grid-template-rows: 1fr 2fr; 
 }
 .layout-multi #panel-seccion { grid-column: span 2; }
+
+/* ==========================================================================
+   OPTIMIZACIÓN PARA MÓVILES (IPHONE / PANTALLAS PEQUEÑAS)
+   ========================================================================== */
+
+/* Cuando la pantalla es pequeña (Móvil) */
+@media (max-width: 600px) {
+    :root {
+        --sidebar-w: 55px;   /* Sidebar más angosto */
+        --header-h: 40px;    /* Header más bajo */
+        --footer-h: 60px;    /* Footer más compacto */
+    }
+
+    .brand { font-size: 14px; }
+    .km-box { height: 30px; padding: 0 8px; }
+    #kmInput { font-size: 14px; width: 100px; }
+
+    /* Hacer que los controles de grilla sean más pequeños para que no se corten */
+    .panel-controls {
+        bottom: 10px;
+        right: 10px;
+        padding: 4px 6px;
+        scale: 0.8; /* Escalamos el grupo completo un 20% */
+        transform-origin: bottom right;
+    }
+
+    /* Subir el texto de las coordenadas (PK) para que no choque con el slider */
+    #main-footer {
+        padding: 0 10px 10px 10px;
+    }
+}
+
+/* Cuando el celular está en posición VERTICAL (Retrato) */
+@media (max-width: 600px) and (orientation: portrait) {
+    #main-dashboard {
+        padding: 5px;
+        gap: 4px;
+    }
+    
+    /* En vertical, el slider necesita estar lo más abajo posible */
+    .mobile-safe-area {
+        height: 10px; 
+    }
+}

@@ -55,7 +55,7 @@ function dibujarSeccion(seccion) {
     ctx.scale(cam.zoom, cam.zoom);
 
     // 5. Posiciones HUD (Texto pegado a bordes)
-    const yTextoFijo = (H - cam.y - 15) / cam.zoom;
+    const yTextoFijo = (H - cam.y - 20) / cam.zoom;
     const xTextoFijo = (10 - cam.x) / cam.zoom;
 
     const gStepX = parseFloat(document.getElementById('inpGridX').value) || 5;
