@@ -6,6 +6,10 @@
     
     <title>Visor TiQAL</title>
     <link rel="stylesheet" href="style.css">
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a1a">
+    
 </head>
 <body>
     <header id="main-header">
@@ -31,46 +35,71 @@
 
         <main id="main-dashboard" class="layout-seccion">
             <section class="panel" id="panel-planta">
-    <header>VISTA DE PLANTA</header>
-    <div class="canvas-wrapper">
-        <canvas id="canvasPlanta"></canvas>
-        <button class="btn-reset-mini" onclick="resetView('planta')" title="Centrar Planta">⟲</button>
-    </div>
-</section>
+                <header>VISTA DE PLANTA</header>
+                <div class="canvas-wrapper">
+                    <canvas id="canvasPlanta"></canvas>
+                    <div class="panel-controls">
+                        <div class="grid-inputs">
+                            <input type="number" id="inpGridPlanta" value="200" step="50" title="Intervalo de Grilla (m)">
+                        </div>
+                        <button class="btn-reset-mini" onclick="resetView('planta')" title="Centrar Planta">⟲</button>
+                    </div>
+                </div>
+            </section>
 
-<section class="panel" id="panel-perfil">
-    <header>VISTA DE PERFIL LONGITUDINAL</header>
-    <div class="canvas-wrapper">
-        <canvas id="canvasPerfil"></canvas>
-        <button class="btn-reset-mini" onclick="resetView('perfil')" title="Centrar Perfil">⟲</button>
-    </div>
-</section>
+            <section class="panel" id="panel-perfil">
+                <header>VISTA DE PERFIL LONGITUDINAL</header>
+                <div class="canvas-wrapper">
+                    <canvas id="canvasPerfil"></canvas>
+                    
+                    <div class="panel-controls">
+                        <div class="grid-inputs">
+                            <input type="number" id="inpGridPerfilK" value="500" step="50" title="Grilla PK (Horizontal)">
+                            <input type="number" id="inpGridPerfilZ" value="10" step="1" title="Grilla Elevación (Vertical)">
+                        </div>
+                        <button class="btn-reset-mini" onclick="resetView('perfil')" title="Centrar Perfil">⟲</button>
+                    </div>
+                </div>
+            </section>
 
-<section class="panel" id="panel-seccion">
-    <header>VISTA DE SECCIÓN TRANSVERSAL</header>
-    <div id="canvasContainer">
-        <canvas id="visorCanvas"></canvas>
-        
-        <div id="hud" style="display: none;">
-            Elevación (Z): <span id="hudY">0.00</span> m<br>
-            Desfase: <span id="hudX">0.00</span> m
-        </div>
-        
-        <button class="btn-reset-mini" onclick="resetView('seccion')" title="Centrar Sección">⟲</button>
-    </div>
-</section>
+            <section class="panel" id="panel-seccion">
+            <header>VISTA DE SECCIÓN TRANSVERSAL</header>
+            <div id="canvasContainer" class="canvas-wrapper">
+                <canvas id="visorCanvas"></canvas>
+                
+                <div id="hud" style="display: none;">
+                    Elevación (Z): <span id="hudY">0.00</span> m<br>
+                    Desfase: <span id="hudX">0.00</span> m
+                </div>
+                
+                <div class="panel-controls">
+                    <div class="grid-inputs">
+                        <input type="number" id="inpGridX" value="5" step="1" title="Grilla Horizontal">
+                        <input type="number" id="inpGridY" value="5" step="1" title="Grilla Vertical">
+                    </div>
+                    <button class="btn-reset-mini" onclick="resetView('seccion')" title="Centrar Sección">⟲</button>
+                </div>
+            </div>
+        </section>
         </main>
     </div>
 
     <footer id="main-footer">
-        <div id="tool-bar">
-            <span>Grilla X: <input type="number" id="inpGridX" value="5" step="1"> m</span>
-            <span>Grilla Y: <input type="number" id="inpGridY" value="5" step="1"> m</span>
-        </div>
-        <div class="slider-wrapper">
-            <input type="range" id="stationSlider" min="0" max="0" value="0">
-        </div>
+    <div class="slider-wrapper">
+        <input type="range" id="stationSlider" min="0" max="0" value="0">
+        <div class="mobile-safe-area"></div>
+    </div>
     </footer>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log("SW registrado", reg.scope))
+                    .catch(err => console.warn("Error al registrar SW", err));
+            });
+        }
+    </script>
 
     <script src="js/state.js"></script>
     <script src="js/seccion.js"></script>
