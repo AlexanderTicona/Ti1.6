@@ -1,71 +1,47 @@
 /* ==========================================================================
-   1. VARIABLES Y CONFIGURACIÓN BASE
+   1. VARIABLES Y CONFIGURACIÓN DE TEMA (MODO DÍA / NOCHE)
    ========================================================================== */
 :root {
-    --bg-dark: #0c0c0c;
-    --header-bg: #181818;
-    --accent: #00fbff;
-    --border: #2a2a2a;
+    /* --- PALETA MODO NOCHE (DEFAULT) --- */
+    --bg-dark: #0c0c0c;       /* Fondo principal */
+    --header-bg: #181818;     /* Header y Headers de Paneles */
+    --panel-bg: #000000;      /* Fondo de paneles */
+    --accent: #00fbff;        /* Cian Neón */
+    --border: #2a2a2a;        /* Bordes oscuros */
+    --text-main: #ffffff;     /* Texto blanco */
+    --text-muted: #888888;    /* Texto gris */
+    
+    /* Dimensiones */
     --sidebar-w: 70px;
-    --footer-h: 70px; /* Reducido ligeramente para optimizar pantalla */
+    --footer-h: 70px;
     --header-h: 50px;
+}
+
+/* --- SOBRESCRIBIR VARIABLES PARA MODO DÍA --- */
+body.light-mode {
+    --bg-dark: #f0f2f5;       /* Fondo gris muy claro */
+    --header-bg: #ffffff;     /* Header blanco */
+    --panel-bg: #ffffff;      /* Paneles blancos */
+    --accent: #0066cc;        /* Azul Ingeniero (más oscuro para leerse bien) */
+    --border: #cccccc;        /* Bordes grises suaves */
+    --text-main: #333333;     /* Texto casi negro */
+    --text-muted: #666666;    /* Texto secundario */
 }
 
 body {
     margin: 0; 
     background: var(--bg-dark); 
-    color: white;
+    color: var(--text-main);
     font-family: 'Segoe UI', sans-serif; 
     height: 100vh;
     display: flex; 
     flex-direction: column; 
     overflow: hidden;
+    transition: background 0.3s, color 0.3s;
 }
 
-/* ==========================================================================
-   2. ESTRUCTURA PRINCIPAL (HEADER, SIDEBAR, DASHBOARD)
-   ========================================================================== */
-#main-header {
-    height: var(--header-h); 
-    background: var(--header-bg);
-    display: flex; 
-    align-items: center; 
-    justify-content: space-between;
-    padding: 0 20px; 
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-}
-
-#app-container { 
-    flex-grow: 1; 
-    display: flex; 
-    overflow: hidden; 
-}
-
-#sidebar {
-    width: 65px; /* Ancho fijo y delgado */
-    background: #111;
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding-top: 10px;
-    flex-shrink: 0;
-}
-
-#main-dashboard { 
-    flex-grow: 1; 
-    display: grid; 
-    gap: 8px; 
-    padding: 10px; 
-    height: 100%;
-}
-
-/* ==========================================================================
-   3. PANELES Y CANVAS (SISTEMA DE CAPAS)
-   ========================================================================== */
 .panel {
-    background: #000;
+    background: var(--panel-bg);
     border: 1px solid var(--border);
     display: flex;
     flex-direction: column;
@@ -74,260 +50,230 @@ body {
 }
 
 .panel header { 
-    background: #1a1a1a; 
+    background: var(--header-bg); 
     font-size: 10px; 
     padding: 4px; 
     text-align: center; 
-    color: #888; 
+    color: var(--text-muted); 
     text-transform: uppercase;
 }
 
-.canvas-wrapper, #canvasContainer {
-    position: relative;
-    flex-grow: 1;
-    overflow: hidden; /* CRUCIAL: Recorta el dibujo que se sale */
+/* ==========================================================================
+   2. ESTRUCTURA PRINCIPAL
+   ========================================================================== */
+#main-header {
+    height: var(--header-h); 
+    background: var(--header-bg);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; 
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
-canvas { 
-    width: 100%; 
-    height: 100%; 
-    display: block; 
-    touch-action: none; /* Necesario para zoom táctil */
+#app-container { flex-grow: 1; display: flex; overflow: hidden; }
+
+#sidebar {
+    width: var(--sidebar-w);
+    background: var(--header-bg); /* Usa header-bg para consistencia */
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center;
+    padding-top: 10px;
+    flex-shrink: 0;
+}
+
+#main-dashboard { 
+    flex-grow: 1; display: grid; gap: 8px; padding: 10px; height: 100%;
 }
 
 /* ==========================================================================
-   4. CONTROLES FLOTANTES (GRILLAS Y RESET)
+   3. CANVAS
+   ========================================================================== */
+.canvas-wrapper, #canvasContainer {
+    position: relative; flex-grow: 1; overflow: hidden;
+}
+canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+
+/* ==========================================================================
+   4. CONTROLES Y HUD
    ========================================================================== */
 .panel-controls {
-    position: absolute;
-    bottom: 30px;
-    right: 15px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(15, 15, 15, 0.85);
-    padding: 6px 10px;
-    border-radius: 8px;
+    position: absolute; bottom: 30px; right: 15px;
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(15, 15, 15, 0.85); /* Este fondo se mantiene oscuro siempre por contraste */
+    padding: 6px 10px; border-radius: 8px;
     backdrop-filter: blur(5px);
     border: 1px solid rgba(0, 251, 255, 0.2);
     z-index: 100;
 }
 
-.grid-inputs {
-    display: flex;
-    gap: 4px;
-    border-right: 1px solid #444;
-    padding-right: 8px;
-}
-
-.grid-inputs input {
-    width: 45px;
-    height: 25px;
-    background: #000;
-    border: 1px solid #333;
-    color: var(--accent);
-    text-align: center;
-    font-size: 11px;
-    border-radius: 4px;
-}
-
 .btn-reset-mini {
-    width: 25px;
-    height: 25px;
-    background: transparent;
-    border: none;
-    color: white;
-    font-size: 18px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    transition: 0.2s;
+    width: 25px; height: 25px; background: transparent; border: none;
+    color: white; font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px; transition: 0.2s;
 }
+.btn-reset-mini:hover { background: rgba(0, 251, 255, 0.2); color: var(--accent); }
 
-.btn-reset-mini:hover {
-    background: rgba(0, 251, 255, 0.2);
-    color: var(--accent);
-}
-
-/* ==========================================================================
-   5. COMPONENTES ESPECÍFICOS (PK, HUD, FOOTER)
-   ========================================================================== */
 .km-wrapper { display: flex; gap: 8px; align-items: center; }
-
 .km-box {
-    background: #000;
+    background: var(--panel-bg);
     border: 1px solid var(--border);
-    border-radius: 4px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    padding: 0 12px;
+    border-radius: 4px; height: 36px;
+    display: flex; align-items: center; padding: 0 12px;
 }
-
 #kmInput {
-    background: transparent;
-    border: none;
-    color: var(--accent);
-    font-size: 18px;
-    font-weight: bold;
-    font-family: monospace;
-    width: 140px;
-    outline: none;
-    text-align: center;
+    background: transparent; border: none;
+    color: var(--accent); font-size: 18px; font-weight: bold;
+    font-family: monospace; width: 140px; outline: none; text-align: center;
 }
 
 #hud { 
-    position: absolute; 
-    top: 20px; /* Bajamos un poco para que no tape el header del panel */
-    right: 15px; 
-    background: rgba(0,0,0,0.85); 
-    border: 1px solid var(--accent); 
-    padding: 8px; 
-    border-radius: 4px; 
-    font-family: monospace; 
-    z-index: 50; /* Por debajo de los controles pero sobre el canvas */
-    font-size: 13px;
-    pointer-events: none; /* No estorba al clic */
-}
-
-#main-footer {
-    height: auto; 
-    min-height: 70px; /* Asegura un alto mínimo */
-    background: #0a0a0a;
-    border-top: 1px solid #222;
-    padding: 10px 15px 5px 15px; 
-    display: flex;
-    flex-direction: column; /* Cambiado a columna para que el safe area baje */
-    justify-content: center;
-    position: relative;
-    z-index: 1000;
-}
-
-.mobile-safe-area {
-    height: 25px; /* Este es el "espacio muerto" que pediste */
-    width: 100%;
-}
-
-.slider-wrapper {
-    width: 100%;
-    padding: 0 10px; /* Un pequeño margen para que el círculo no se corte en los extremos */
-    box-sizing: border-box;
-}
-
-input[type=range] {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    background: transparent;
-    height: 30px; /* Área táctil dedicada */
-    margin: 0;
-}
-
-/* El "camino" de la barra */
-input[type=range]::-webkit-slider-runnable-track {
-    width: 100%;
-    height: 6px;
-    background: #1a1a1a;
-    border-radius: 3px;
-    border: 1px solid #333;
-}
-
-/* El círculo (Thumb) - Más grande para tablets */
-input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    height: 22px;
-    width: 22px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-    margin-top: -9px; /* Centrado en el track */
-    box-shadow: 0 0 15px rgba(0, 251, 255, 0.4);
-    border: 2px solid #000;
+    position: absolute; top: 20px; right: 15px; 
+    background: rgba(0,0,0,0.85); border: 1px solid var(--accent); color: white;
+    padding: 8px; border-radius: 4px; font-family: monospace; 
+    z-index: 50; font-size: 13px; pointer-events: none;
 }
 
 /* ==========================================================================
-   6. LAYOUTS DINÁMICOS Y PESTAÑAS
+   5. FOOTER
+   ========================================================================== */
+#main-footer {
+    height: auto; min-height: 70px;
+    background: var(--header-bg);
+    border-top: 1px solid var(--border);
+    padding: 10px 15px 5px 15px; 
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative; z-index: 1000;
+}
+.mobile-safe-area { height: 25px; width: 100%; }
+.slider-wrapper { width: 100%; padding: 0 10px; box-sizing: border-box; }
+
+input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%;
+    background: transparent; height: 30px; margin: 0;
+}
+input[type=range]::-webkit-slider-runnable-track {
+    width: 100%; height: 6px; background: var(--border);
+    border-radius: 3px;
+}
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    height: 22px; width: 22px; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+    margin-top: -9px; box-shadow: 0 0 5px rgba(0,0,0,0.5); border: 2px solid #fff;
+}
+
+/* ==========================================================================
+   6. BOTONES LATERALES
    ========================================================================== */
 .tab-btn {
-    background: transparent;
-    border: none;
-    color: #555;
-    width: 100%;
-    padding: 12px 0;
-    cursor: pointer;
-    transition: 0.2s;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    background: transparent; border: none; color: var(--text-muted);
+    width: 100%; padding: 12px 0; cursor: pointer; transition: 0.2s;
+    display: flex; flex-direction: column; align-items: center;
 }
+.tab-btn span { font-size: 9px; font-weight: bold; margin-top: 5px; text-transform: uppercase; }
+.tab-btn.active { color: var(--accent); background: rgba(0, 251, 255, 0.05); border-left: 2px solid var(--accent); }
 
-.tab-btn i, .tab-btn span {
-    font-size: 9px; /* Texto pequeño y minimalista */
-    font-weight: bold;
-    margin-top: 5px;
-    text-transform: uppercase;
-}
-
-.tab-btn.active {
-    color: var(--accent);
-    background: rgba(0, 251, 255, 0.05);
-    border-left: 2px solid var(--accent);
-}
-
-/* Layout Lógica */
+/* Layouts */
 .layout-seccion #panel-planta, .layout-seccion #panel-perfil { display: none; }
 .layout-planta #panel-seccion, .layout-planta #panel-perfil { display: none; }
 .layout-perfil #panel-planta, .layout-perfil #panel-seccion { display: none; }
-
-.layout-multi { 
-    grid-template-columns: 1fr 1fr; 
-    grid-template-rows: 1fr 2fr; 
-}
+.layout-multi { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 2fr; }
 .layout-multi #panel-seccion { grid-column: span 2; }
 
 /* ==========================================================================
-   OPTIMIZACIÓN PARA MÓVILES (IPHONE / PANTALLAS PEQUEÑAS)
+   7. PANEL DE AJUSTES INTEGRADO (FULL DASHBOARD)
    ========================================================================== */
-
-/* Cuando la pantalla es pequeña (Móvil) */
-@media (max-width: 600px) {
-    :root {
-        --sidebar-w: 55px;   /* Sidebar más angosto */
-        --header-h: 40px;    /* Header más bajo */
-        --footer-h: 60px;    /* Footer más compacto */
-    }
-
-    .brand { font-size: 14px; }
-    .km-box { height: 30px; padding: 0 8px; }
-    #kmInput { font-size: 14px; width: 100px; }
-
-    /* Hacer que los controles de grilla sean más pequeños para que no se corten */
-    .panel-controls {
-        bottom: 10px;
-        right: 10px;
-        padding: 4px 6px;
-        scale: 0.8; /* Escalamos el grupo completo un 20% */
-        transform-origin: bottom right;
-    }
-
-    /* Subir el texto de las coordenadas (PK) para que no choque con el slider */
-    #main-footer {
-        padding: 0 10px 10px 10px;
-    }
+.modal-overlay {
+    position: absolute; 
+    top: var(--header-h); 
+    left: var(--sidebar-w);
+    width: calc(100% - var(--sidebar-w)); 
+    height: calc(100% - var(--header-h));
+    background: var(--bg-dark); 
+    
+    /* CAMBIO AQUÍ: De 500 a 2000 para que esté ENCIMA del slider */
+    z-index: 2000; 
+    
+    display: flex; 
+    align-items: stretch; 
+    justify-content: center;
 }
 
-/* Cuando el celular está en posición VERTICAL (Retrato) */
-@media (max-width: 600px) and (orientation: portrait) {
-    #main-dashboard {
-        padding: 5px;
-        gap: 4px;
-    }
-    
-    /* En vertical, el slider necesita estar lo más abajo posible */
-    .mobile-safe-area {
-        height: 10px; 
-    }
+.settings-box {
+    width: 100%; height: 100%; border: none; background: var(--bg-dark);
+    display: flex; flex-direction: column;
+}
+
+.modal-header {
+    padding: 0 30px; height: 60px; flex-shrink: 0;
+    border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.1);
+    display: flex; align-items: center; justify-content: space-between;
+}
+.header-title span { font-size: 18px; color: var(--accent); font-weight: bold; }
+.btn-close { background: none; border: none; font-size: 32px; color: var(--text-muted); cursor: pointer; }
+.btn-close:hover { color: var(--accent); }
+
+.modal-body-layout { display: flex; flex-grow: 1; overflow: hidden; border-bottom: 1px solid var(--border); }
+
+/* Sidebar Ajustes */
+.settings-sidebar {
+    width: 200px; background: rgba(0,0,0,0.05); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 20px 0;
+}
+.setting-tab {
+    background: transparent; border: none; text-align: left; padding: 15px 25px;
+    color: var(--text-muted); cursor: pointer; font-size: 14px; font-weight: 600;
+    border-left: 4px solid transparent;
+}
+.setting-tab.active { background: rgba(0,0,0,0.1); color: var(--accent); border-left: 4px solid var(--accent); }
+
+/* Contenido Ajustes */
+.settings-main { flex-grow: 1; padding: 40px; overflow-y: auto; }
+.tab-content { display: none; animation: fadeIn 0.3s ease-out; max-width: 800px; }
+.tab-content.active { display: block; }
+
+.setting-group { margin-bottom: 40px; }
+.setting-group label {
+    display: block; font-size: 12px; text-transform: uppercase; color: var(--accent);
+    margin-bottom: 15px; font-weight: bold; border-bottom: 1px solid var(--border); padding-bottom: 8px;
+}
+.setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 15px; }
+
+/* Inputs */
+.input-number {
+    background: rgba(0,0,0,0.1); border: 1px solid var(--border); color: var(--text-main);
+    padding: 8px; border-radius: 6px; width: 80px; text-align: right; font-family: monospace;
+}
+.input-select {
+    background: rgba(0,0,0,0.1); border: 1px solid var(--border); color: var(--text-main);
+    padding: 8px; border-radius: 6px; width: 140px;
+}
+
+.modal-footer {
+    height: 70px; padding: 0 40px; display: flex; align-items: center; justify-content: flex-end;
+    gap: 15px; background: rgba(0,0,0,0.1);
+}
+.btn-primary { background: var(--accent); color: #000; border: none; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+.btn-secondary { background: transparent; color: var(--text-muted); border: 1px solid var(--border); padding: 10px 24px; border-radius: 6px; cursor: pointer; }
+
+/* Botón Ajustes Activo */
+.btn-settings { color: var(--text-muted); border-top: 1px solid var(--border); margin-top: 10px; padding-top: 15px; }
+.btn-settings.active, .btn-settings:hover { color: var(--accent); }
+
+/* Switch */
+.switch { position: relative; display: inline-block; width: 46px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: var(--accent); }
+input:checked + .slider:before { transform: translateX(22px); }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Media Queries */
+@media (max-width: 600px) {
+    :root { --sidebar-w: 55px; --header-h: 40px; --footer-h: 60px; }
+    .brand { font-size: 14px; } .km-box { height: 30px; }
+    #kmInput { font-size: 14px; width: 100px; }
 }

@@ -9,7 +9,6 @@
 
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1a1a1a">
-    
 </head>
 <body>
     <header id="main-header">
@@ -20,7 +19,9 @@
                 <input type="text" id="kmInput" value="ESPERANDO ARCHIVO..." title="Presiona Enter para buscar">
             </div>
         </div>
-        <button class="btn-load" onclick="document.getElementById('fileInput').click()">📁 CARGAR JSON</button>
+        <div class="header-tools">
+            <button class="btn-load" onclick="document.getElementById('fileInput').click()">📁 CARGAR JSON</button>
+        </div>
         <input type="file" id="fileInput" style="display:none" accept=".json">
     </header>
 
@@ -29,19 +30,25 @@
             <button class="tab-btn active" onclick="changeLayout('layout-seccion')">📐<br><span>SECCIÓN</span></button>
             <button class="tab-btn" onclick="changeLayout('layout-planta')">🗺️<br><span>PLANTA</span></button>
             <button class="tab-btn" onclick="changeLayout('layout-perfil')">📉<br><span>PERFIL</span></button>
+            
             <div class="separator"></div>
+            
             <button class="tab-btn" onclick="changeLayout('layout-multi')">🔲<br><span>MIXTO</span></button>
+            
+            <div style="flex-grow: 1;"></div> 
+
+            <button class="tab-btn btn-settings" onclick="toggleSettings()">
+                ⚙️<br><span>AJUSTES</span>
+            </button>
         </aside>
 
         <main id="main-dashboard" class="layout-seccion">
+            
             <section class="panel" id="panel-planta">
                 <header>VISTA DE PLANTA</header>
                 <div class="canvas-wrapper">
                     <canvas id="canvasPlanta"></canvas>
                     <div class="panel-controls">
-                        <div class="grid-inputs">
-                            <input type="number" id="inpGridPlanta" value="200" step="50" title="Intervalo de Grilla (m)">
-                        </div>
                         <button class="btn-reset-mini" onclick="resetView('planta')" title="Centrar Planta">⟲</button>
                     </div>
                 </div>
@@ -51,45 +58,162 @@
                 <header>VISTA DE PERFIL LONGITUDINAL</header>
                 <div class="canvas-wrapper">
                     <canvas id="canvasPerfil"></canvas>
-                    
                     <div class="panel-controls">
-                        <div class="grid-inputs">
-                            <input type="number" id="inpGridPerfilK" value="500" step="50" title="Grilla PK (Horizontal)">
-                            <input type="number" id="inpGridPerfilZ" value="10" step="1" title="Grilla Elevación (Vertical)">
-                        </div>
                         <button class="btn-reset-mini" onclick="resetView('perfil')" title="Centrar Perfil">⟲</button>
                     </div>
                 </div>
             </section>
 
             <section class="panel" id="panel-seccion">
-            <header>VISTA DE SECCIÓN TRANSVERSAL</header>
-            <div id="canvasContainer" class="canvas-wrapper">
-                <canvas id="visorCanvas"></canvas>
-                
-                <div id="hud" style="display: none;">
-                    Elevación (Z): <span id="hudY">0.00</span> m<br>
-                    Desfase: <span id="hudX">0.00</span> m
-                </div>
-                
-                <div class="panel-controls">
-                    <div class="grid-inputs">
-                        <input type="number" id="inpGridX" value="5" step="1" title="Grilla Horizontal">
-                        <input type="number" id="inpGridY" value="5" step="1" title="Grilla Vertical">
+                <header>VISTA DE SECCIÓN TRANSVERSAL</header>
+                <div id="canvasContainer" class="canvas-wrapper">
+                    <canvas id="visorCanvas"></canvas>
+                    
+                    <div id="hud" style="display: none;">
+                        Elevación (Z): <span id="hudY">0.00</span> m<br>
+                        Desfase: <span id="hudX">0.00</span> m
                     </div>
-                    <button class="btn-reset-mini" onclick="resetView('seccion')" title="Centrar Sección">⟲</button>
+                    
+                    <div class="panel-controls">
+                        <button class="btn-reset-mini" onclick="resetView('seccion')" title="Centrar Sección">⟲</button>
+                    </div>
                 </div>
-            </div>
-        </section>
+            </section>
         </main>
     </div>
 
     <footer id="main-footer">
-    <div class="slider-wrapper">
-        <input type="range" id="stationSlider" min="0" max="0" value="0">
-        <div class="mobile-safe-area"></div>
-    </div>
+        <div class="slider-wrapper">
+            <input type="range" id="stationSlider" min="0" max="0" value="0">
+            <div class="mobile-safe-area"></div>
+        </div>
     </footer>
+
+    <div id="settingsModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content settings-box">
+            <header class="modal-header">
+                <div class="header-title">
+                    <span>⚙️ CONFIGURACIÓN</span>
+                </div>
+                <button class="btn-close" onclick="toggleSettings()">×</button>
+            </header>
+            
+            <div class="modal-body-layout">
+                <aside class="settings-sidebar">
+                    <button class="setting-tab active" onclick="openTab('tab-general')">General</button>
+                    <button class="setting-tab" onclick="openTab('tab-planta')">Planta</button>
+                    <button class="setting-tab" onclick="openTab('tab-perfil')">Perfil</button>
+                    <button class="setting-tab" onclick="openTab('tab-seccion')">Sección</button>
+                </aside>
+
+                <main class="settings-main">
+                    <div id="tab-general" class="tab-content active">
+                        <div class="setting-group">
+                            <label>Apariencia</label>
+                            <div class="setting-row">
+                                <span>Modo Día / Noche</span>
+                                <label class="switch">
+                                    <input type="checkbox" id="chkTheme" onchange="toggleTheme(this)">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="setting-group">
+                            <label>Textos Globales</label>
+                            <div class="setting-row">
+                                <span>Escala de Texto</span>
+                                <input type="number" id="cfgTextScale" value="1.0" step="0.1" min="0.5" max="5.0" class="input-number">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-planta" class="tab-content">
+                        <div class="setting-group">
+                            <label>Grilla y Coordenadas</label>
+                            
+                            <div class="setting-row">
+                                <span>Intervalo General (m)</span>
+                                <input type="number" id="cfgGridPlanta" value="200" step="50" class="input-number">
+                            </div>
+
+                            <div class="setting-row">
+                                <span>Intervalo Miniatura (m)</span>
+                                <input type="number" id="cfgGridPlantaMulti" value="500" step="100" class="input-number">
+                            </div>
+
+                            <div class="setting-row">
+                                <span>Mostrar Grilla</span>
+                                <input type="checkbox" id="chkShowGridPlanta" checked>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-perfil" class="tab-content">
+                        <div class="setting-group">
+                            <label>Grilla Horizontal (PK)</label>
+                            <div class="setting-row">
+                                <span>Intervalo Vista Gral.</span>
+                                <input type="number" id="cfgGridPerfilK" value="500" step="50" class="input-number">
+                            </div>
+                            <div class="setting-row">
+                                <span>Intervalo Vista Mini</span> <input type="number" id="cfgGridPerfilKMulti" value="1000" step="100" class="input-number">
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Grilla Vertical (Cota)</label>
+                            <div class="setting-row">
+                                <span>Intervalo Vista Gral.</span>
+                                <input type="number" id="cfgGridPerfilZ" value="10" step="1" class="input-number">
+                            </div>
+                            <div class="setting-row">
+                                <span>Intervalo Vista Mini</span> <input type="number" id="cfgGridPerfilZMulti" value="50" step="5" class="input-number">
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Visualización</label>
+                            <div class="setting-row">
+                                <span>Exageración Vertical</span>
+                                <select id="cfgExajPerfil" class="input-select">
+                                    <option value="1">1x (Real)</option>
+                                    <option value="5">5x</option>
+                                    <option value="10" selected>10x (Standard)</option>
+                                    <option value="20">20x</option>
+                                </select>
+                            </div>
+                            <div class="setting-row">
+                                <span>Rastreo (Punto Rojo)</span>
+                                <select id="cfgTargetPerfil" class="input-select">
+                                    <option value="all">Seguir Todo</option>
+                                    <option value="rasante">Solo Rasante</option>
+                                    <option value="terreno">Solo Terreno</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="tab-seccion" class="tab-content">
+                        <div class="setting-group">
+                            <label>Grilla Transversal</label>
+                            <div class="setting-row">
+                                <span>Intervalo Desfase (X)</span>
+                                <input type="number" id="cfgGridSeccionX" value="5" step="1" class="input-number">
+                            </div>
+                            <div class="setting-row">
+                                <span>Intervalo Elevación (Y)</span>
+                                <input type="number" id="cfgGridSeccionY" value="5" step="1" class="input-number">
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+            
+            <footer class="modal-footer">
+                <button class="btn-primary" onclick="applySettingsAndClose()">Guardar y Cerrar</button>
+            </footer>
+        </div>
+    </div>
 
     <script>
         if ('serviceWorker' in navigator) {

@@ -1,24 +1,30 @@
-// js/perfil.js
 function dibujarPerfil() {
     const canvas = document.getElementById('canvasPerfil');
     if (!canvas || !appState.perfil) return;
     const ctx = canvas.getContext('2d');
     
+    const isLight = appConfig.general.theme === 'light';
+    const escalaTxt = appConfig.general.textScale || 1.0;
+
+    const colorGrilla = isLight ? "rgba(0, 0, 0, 0.15)" : "rgba(255, 255, 255, 0.05)";
+    const colorTexto  = isLight ? "#444" : "rgba(255, 255, 255, 0.4)";
+    const colorTerreno= isLight ? "#2e7d32" : "#4CAF50"; 
+    const colorRasante= isLight ? "#0056b3" : "#00fbff"; 
+    const colorTxtPto = isLight ? "#000" : "white";      
+
     const W = canvas.width, H = canvas.height;
     ctx.clearRect(0, 0, W, H);
 
-    // 1. OBTENER LÍMITES DE ENCUADRE Y GRILLA
     const { minK, maxK, minZ, maxZ } = appState.encuadre.perfil;
     const { minK: gMinK, maxK: gMaxK, minZ: gMinZ, maxZ: gMaxZ } = appState.limitesGlobales.perfil;
-    
     const centroK = (minK + maxK) / 2;
     const centroZ = (minZ + maxZ) / 2;
 
-    // 2. CONFIGURACIÓN DE ESCALA
-    const exajVertical = 10; 
+    const exajVertical = appConfig.perfil.exaj || 10; 
+
     const rangeK = maxK - minK;
     const rangeZ = (maxZ - minZ) * exajVertical;
-    const scale = Math.min(W / (rangeK * 1.1), H / (rangeZ * 1.1)); // Ajustado margen a 1.2
+    const scale = Math.min(W / (rangeK * 1.1), H / (rangeZ * 1.1)); 
 
     const toX = (k) => (W / 2) + (k - centroK) * scale;
     const toY = (z) => (H / 2) - (z - centroZ) * exajVertical * scale;
@@ -28,52 +34,53 @@ function dibujarPerfil() {
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.zoom, cam.zoom);
 
-    // --- 3. DIBUJO DE GRILLA (Carga Manual desde UI) ---
-    const gridInpK = document.getElementById('inpGridPerfilK');
-    const gridInpZ = document.getElementById('inpGridPerfilZ');
+    // --- GRILLA INTELIGENTE ---
+    // 1. Detectar modo Mini
+    const dashboard = document.getElementById('main-dashboard');
+    const esModoMini = dashboard && dashboard.classList.contains('layout-multi');
 
-    let gStepK = gridInpK ? parseFloat(gridInpK.value) : 100;
-    let gStepZ = gridInpZ ? parseFloat(gridInpZ.value) : 5;
+    // 2. Seleccionar intervalo (PK)
+    let gStepK = esModoMini 
+        ? (appConfig.perfil.gridKMulti || 1000) 
+        : (appConfig.perfil.gridK || 100);
+
+    // 3. Seleccionar intervalo (Cota)
+    let gStepZ = esModoMini 
+        ? (appConfig.perfil.gridZMulti || 50) 
+        : (appConfig.perfil.gridZ || 5);
     
-    if (isNaN(gStepK) || gStepK <= 0) gStepK = 100;
-    if (isNaN(gStepZ) || gStepZ <= 0) gStepZ = 5;
+    if (gStepK <= 0) gStepK = 100;
+    if (gStepZ <= 0) gStepZ = 5;
     
     ctx.lineWidth = 1 / cam.zoom;
-    ctx.font = `${11 / cam.zoom}px monospace`;
+    ctx.font = `${(11 * escalaTxt) / cam.zoom}px monospace`;
+    ctx.fillStyle = colorTexto; 
 
-    const yTextoFijo = (H - cam.y - 30) / cam.zoom; // Ajustado a 35 para dar espacio
+    const yTextoFijo = (H - cam.y - 30) / cam.zoom; 
     const xTextoFijo = (10 - cam.x) / cam.zoom;
 
-    // GRILLA VERTICAL (PKs)
+    // Dibujo Vertical (PKs)
     for (let k = Math.ceil(gMinK / gStepK) * gStepK; k <= gMaxK; k += gStepK) {
         let sx = toX(k);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-        ctx.beginPath();
-        ctx.moveTo(sx, toY(gMinZ)); ctx.lineTo(sx, toY(gMaxZ));
-        ctx.stroke();
-        
-        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.strokeStyle = colorGrilla; 
+        ctx.beginPath(); ctx.moveTo(sx, toY(gMinZ)); ctx.lineTo(sx, toY(gMaxZ)); ctx.stroke();
         ctx.textAlign = "center";
         ctx.fillText(k.toFixed(0), sx, yTextoFijo);
     }
-
-    // GRILLA HORIZONTAL (Elevaciones)
+    
+    // Dibujo Horizontal (Cotas)
     for (let z = Math.ceil(gMinZ / gStepZ) * gStepZ; z <= gMaxZ; z += gStepZ) {
         let sy = toY(z);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-        ctx.beginPath();
-        ctx.moveTo(toX(gMinK), sy); ctx.lineTo(toX(gMaxK), sy);
-        ctx.stroke();
-        
-        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.strokeStyle = colorGrilla; 
+        ctx.beginPath(); ctx.moveTo(toX(gMinK), sy); ctx.lineTo(toX(gMaxK), sy); ctx.stroke();
         ctx.textAlign = "left";
         ctx.fillText(z.toFixed(1), xTextoFijo, sy - 2 / cam.zoom);
     }
 
-    // --- 4. DIBUJO DE PERFILES ---
+    // --- PERFILES ---
     Object.values(appState.perfil.perfiles).forEach(p => {
         ctx.beginPath();
-        ctx.strokeStyle = p.tipo.includes("Surface") ? "#4CAF50" : "#00fbff";
+        ctx.strokeStyle = p.tipo.includes("Surface") ? colorTerreno : colorRasante;
         ctx.lineWidth = (p.tipo.includes("Surface") ? 1.5 : 2.5) / cam.zoom;
         p.datos.forEach((pt, i) => {
             if (i === 0) ctx.moveTo(toX(pt.k), toY(pt.z));
@@ -82,44 +89,35 @@ function dibujarPerfil() {
         ctx.stroke();
     });
 
-    // --- 5. MARCADOR DE PK ACTUAL (LÍNEA + PUNTO) ---
+    // --- PUNTO ROJO ---
     if (appState.secciones && appState.secciones.length > 0) {
         const pkActual = appState.secciones[appState.currentIdx].k;
         const xPos = toX(pkActual);
 
-        // A) Línea Vertical Roja (Guía)
-        ctx.setLineDash([5, 5]);
-        ctx.strokeStyle = "rgba(255, 0, 0, 0.5)";
-        ctx.lineWidth = 1 / cam.zoom;
-        ctx.beginPath();
-        ctx.moveTo(xPos, toY(gMinZ)); ctx.lineTo(xPos, toY(gMaxZ));
-        ctx.stroke();
+        ctx.setLineDash([5, 5]); ctx.strokeStyle = "rgba(255, 0, 0, 0.5)"; ctx.lineWidth = 1 / cam.zoom;
+        ctx.beginPath(); ctx.moveTo(xPos, toY(gMinZ)); ctx.lineTo(xPos, toY(gMaxZ)); ctx.stroke();
         ctx.setLineDash([]);
 
-        // B) Puntos Rojos sobre los perfiles (NUEVO)
+        // Lógica de "Target" (Qué puntos mostrar)
+        const target = appConfig.perfil.target || 'all';
+
         Object.values(appState.perfil.perfiles).forEach(p => {
-            // Buscamos el punto más cercano en este perfil al PK actual
-            // Usamos un rango de búsqueda pequeño (ej. 5m) para encontrar el vértice
+            // Filtrar si el usuario pidió solo Rasante o solo Terreno
+            const esTerreno = p.tipo.includes("Surface");
+            if (target === 'rasante' && esTerreno) return;
+            if (target === 'terreno' && !esTerreno) return;
+
             const pt = p.datos.find(d => Math.abs(d.k - pkActual) < 5); 
-
             if (pt) {
-                // Dibujar Círculo
                 ctx.fillStyle = "red";
-                ctx.beginPath();
-                // Usamos toX(pt.k) para que el punto quede EXACTAMENTE sobre la línea del perfil
-                // aunque visualmente podría saltar un poquito si la línea vertical no coincide exacta.
-                ctx.arc(toX(pt.k), toY(pt.z), 6 / cam.zoom, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Texto con la Elevación (Z)
-                ctx.fillStyle = "white";
-                ctx.font = `bold ${11 / cam.zoom}px Arial`;
+                ctx.beginPath(); ctx.arc(toX(pt.k), toY(pt.z), 6 / cam.zoom, 0, Math.PI * 2); ctx.fill();
+                
+                ctx.fillStyle = colorTxtPto; 
+                ctx.font = `bold ${(11 * escalaTxt) / cam.zoom}px Arial`;
                 ctx.textAlign = "left";
-                // Dibujamos el texto un poco arriba y a la derecha del punto
                 ctx.fillText(`Z: ${pt.z.toFixed(2)}`, toX(pt.k) + 8 / cam.zoom, toY(pt.z) - 8 / cam.zoom);
             }
         });
     }
-
     ctx.restore();
 }
