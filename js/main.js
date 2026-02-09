@@ -1,6 +1,6 @@
 // js/main.js
 
-// 1. BLOQUEO DE GESTOS
+// 1. BLOQUEO DE GESTOS NATIVOS (Previene recargas indeseadas en móvil)
 document.addEventListener('touchstart', e => { 
     if (e.touches.length > 1) e.preventDefault(); 
 }, { passive: false });
@@ -35,7 +35,7 @@ function changeLayout(newLayout) {
     });
 }
 
-// 3. LECTOR DE ARCHIVOS (.TIQAL / JSON OPTIMIZADO)
+// 3. LECTOR DE ARCHIVOS (.TIQAL)
 document.getElementById('fileInput').addEventListener('change', function(e) {
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -44,18 +44,16 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
             let datosCargados = false;
 
             // --- A. PLANTA ---
-            // Soporta 'planta_trazo' (Nuevo C#) o 'planta' (C# Simple)
             const plantaArr = raw.planta_trazo || raw.planta;
-            
             if (plantaArr) {
-                appState.planta = raw; // Guardamos la raíz
+                appState.planta = raw; 
                 let minE = Infinity, maxE = -Infinity, minN = Infinity, maxN = -Infinity;
                 
-                // Iteramos arrays [x, y] o [k, x, y]
                 plantaArr.forEach(pt => {
-                    // Si viene [k, x, y] el este es [1], si viene [x, y] es [0]
-                    const x = pt.length === 3 ? pt[1] : pt[0];
-                    const y = pt.length === 3 ? pt[2] : pt[1];
+                    // Lógica inteligente: Si es [k,x,y] toma índices 1 y 2. Si es [x,y] toma 0 y 1.
+                    const x = pt.length >= 3 ? pt[1] : pt[0];
+                    const y = pt.length >= 3 ? pt[2] : pt[1];
+                    
                     if (x < minE) minE = x; if (x > maxE) maxE = x;
                     if (y < minN) minN = y; if (y > maxN) maxN = y;
                 });
@@ -70,24 +68,21 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
 
             // --- B. PERFIL ---
             if (raw.perfiles) {
-                appState.perfil = raw.perfiles; // Array de objetos
+                appState.perfil = raw.perfiles;
                 let minK = Infinity, maxK = -Infinity, minZ = Infinity, maxZ = -Infinity;
                 
                 raw.perfiles.forEach(p => {
-                    if (p.data) {
-                        p.data.forEach(pt => {
-                            // pt es [k, z]
-                            const k = pt[0], z = pt[1];
-                            if (k < minK) minK = k; if (k > maxK) maxK = k;
-                            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
-                        });
-                    }
+                    if (p.data) p.data.forEach(pt => {
+                        const k = pt[0], z = pt[1];
+                        if (k < minK) minK = k; if (k > maxK) maxK = k;
+                        if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+                    });
                 });
 
                 if (minK !== Infinity) {
                     const altoZ = maxZ - minZ;
                     appState.limitesGlobales.perfil = {
-                        minK: minK, maxK: maxK,
+                        minK, maxK, 
                         minZ: minZ - (altoZ * 0.2), maxZ: maxZ + (altoZ * 0.2)
                     };
                     appState.encuadre.perfil = { minK, maxK, minZ, maxZ };
@@ -98,20 +93,16 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
             // --- C. SECCIONES ---
             if (raw.secciones) {
                 appState.secciones = raw.secciones;
-                
-                // Calcular límites globales para auto-zoom
                 let gMinY = Infinity, gMaxY = -Infinity;
                 
-                // Muestreo rápido para velocidad
+                // Muestreo rápido
                 const pasoScan = raw.secciones.length > 500 ? 10 : 1; 
 
                 for (let k = 0; k < raw.secciones.length; k += pasoScan) {
                     const sec = raw.secciones[k];
-                    // Helper para leer [x,y,x,y...]
                     const escanear = (listas) => {
                         if (!listas) return;
                         listas.forEach(obj => {
-                            // obj puede ser {p: [...]} o directo [...]
                             const arr = Array.isArray(obj) ? obj : (obj.p || []);
                             for (let i = 1; i < arr.length; i+=2) {
                                 const y = arr[i];
@@ -122,8 +113,7 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
                             }
                         });
                     };
-                    escanear(sec.t);
-                    escanear(sec.c);
+                    escanear(sec.t); escanear(sec.c);
                 }
 
                 if (gMinY === Infinity) { gMinY = 0; gMaxY = 20; }
@@ -133,15 +123,12 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
                     minX: -50, maxX: 50,
                     minY: gMinY - (alto * 0.1), maxY: gMaxY + (alto * 0.1)
                 };
-                
-                // Encuadre inicial (Sección 0)
                 appState.encuadre.seccion = { minX: -20, maxX: 20, minY: gMinY, maxY: gMaxY };
 
                 const slider = document.getElementById('stationSlider');
                 slider.max = appState.secciones.length - 1;
                 slider.value = 0;
                 appState.currentIdx = 0;
-                
                 datosCargados = true;
             }
 
@@ -164,26 +151,39 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
     reader.readAsText(e.target.files[0]);
 });
 
-// 4. INTERACCIÓN (MOUSE/TOUCH)
+// 4. INTERACCIÓN UNIFICADA (MOUSE/TOUCH)
 const canvasSec = document.getElementById('visorCanvas');
 const canvasPlanta = document.getElementById('canvasPlanta');
 const canvasPerfil = document.getElementById('canvasPerfil');
-let isPanning = false; let distInicial = null;
 
-function getPos(e) { return (e.touches && e.touches.length > 0) ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY }; }
+let isPanning = false;
+let distInicial = null;
+
+function getPos(e) { 
+    return (e.touches && e.touches.length > 0) ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : { x: e.clientX, y: e.clientY }; 
+}
 
 function handleStart(e, tipo) {
-    const pos = getPos(e); appState.lastMousePos = pos; isPanning = true;
-    if (tipo === 'seccion') { appState.isDragging = true; updateHUD(e); }
+    const pos = getPos(e);
+    appState.lastMousePos = pos;
+    isPanning = true;
+
+    // Solo actualizamos HUD si hacemos clic en Sección
+    if (tipo === 'seccion') { 
+        appState.isDragging = true; 
+        updateHUD(e); 
+    }
     if (tipo === 'planta') { if(appState.planta) appState.isDraggingPlanta = true; }
     if (tipo === 'perfil') { if(appState.perfil) appState.isDraggingPerfil = true; }
 }
 
+// Asignar listeners
 [{c: canvasSec, t: 'seccion'}, {c: canvasPlanta, t: 'planta'}, {c: canvasPerfil, t: 'perfil'}].forEach(item => {
     item.c.addEventListener('mousedown', e => handleStart(e, item.t));
     item.c.addEventListener('touchstart', e => {
         if (e.touches.length === 1) handleStart(e, item.t);
-        else if (e.touches.length === 2 && item.t === 'seccion') {
+        else if (e.touches.length === 2) {
+            // Guardamos distancia inicial para el pinch zoom
             distInicial = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
         }
     }, { passive: false });
@@ -192,9 +192,11 @@ function handleStart(e, tipo) {
 window.addEventListener('mousemove', handleMove);
 window.addEventListener('touchmove', e => {
     if (e.touches.length === 1 && isPanning) {
-        if (e.target.tagName === 'CANVAS') e.preventDefault(); handleMove(e);
-    } else if (e.touches.length === 2 && distInicial && e.target.id === 'visorCanvas') {
-        e.preventDefault(); handlePinchZoom(e);
+        if (e.target.tagName === 'CANVAS') e.preventDefault();
+        handleMove(e);
+    } else if (e.touches.length === 2 && distInicial) {
+        e.preventDefault();
+        handlePinchZoom(e); // Llama a la función dinámica
     }
 }, { passive: false });
 
@@ -203,31 +205,54 @@ function handleMove(e) {
     const pos = getPos(e);
     const deltaX = (pos.x - appState.lastMousePos.x) * window.devicePixelRatio;
     const deltaY = (pos.y - appState.lastMousePos.y) * window.devicePixelRatio;
+
     if (appState.isDragging) { appState.cameras.seccion.x += deltaX; appState.cameras.seccion.y += deltaY; }
     if (appState.isDraggingPlanta) { appState.cameras.planta.x += deltaX; appState.cameras.planta.y += deltaY; }
     if (appState.isDraggingPerfil) { appState.cameras.perfil.x += deltaX; appState.cameras.perfil.y += deltaY; }
-    appState.lastMousePos = pos; syncAllViews();
+
+    appState.lastMousePos = pos;
+    syncAllViews();
 }
 
+// ZOOM TÁCTIL DINÁMICO (Planta, Perfil y Sección)
 function handlePinchZoom(e) {
+    let cam = null;
+    const targetId = e.target.id;
+    
+    // Detectamos qué cámara mover según qué canvas estamos tocando
+    if (targetId === 'visorCanvas') cam = appState.cameras.seccion;
+    else if (targetId === 'canvasPlanta') cam = appState.cameras.planta;
+    else if (targetId === 'canvasPerfil') cam = appState.cameras.perfil;
+    
+    if (!cam) return; 
+
     const distActual = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-    const cam = appState.cameras.seccion;
     const delta = distActual / distInicial;
     const oldZoom = cam.zoom;
+    
+    // Zoom con límites
     cam.zoom = Math.min(Math.max(cam.zoom * delta, 0.01), 100);
+    
+    // Zoom hacia el centro del gesto (Punto medio de los dos dedos)
     const midX = (e.touches[0].pageX + e.touches[1].pageX) / 2;
     const midY = (e.touches[0].pageY + e.touches[1].pageY) / 2;
-    const rect = canvasSec.getBoundingClientRect();
+    const rect = e.target.getBoundingClientRect();
     const ax = (midX - rect.left) * window.devicePixelRatio;
     const ay = (midY - rect.top) * window.devicePixelRatio;
+    
+    // Ajuste de paneo para mantener el centro
     cam.x -= (ax - cam.x) * (cam.zoom / oldZoom - 1);
     cam.y -= (ay - cam.y) * (cam.zoom / oldZoom - 1);
-    distInicial = distActual; syncAllViews();
+    
+    distInicial = distActual;
+    syncAllViews();
 }
 
-const stopAll = () => { isPanning = false; distInicial = null; appState.isDragging = appState.isDraggingPlanta = appState.isDraggingPerfil = false; };
-window.addEventListener('mouseup', stopAll); window.addEventListener('touchend', stopAll);
+const stopAll = () => { isPanning = false; distInicial = null; appState.isDragging = false; appState.isDraggingPlanta = false; appState.isDraggingPerfil = false; };
+window.addEventListener('mouseup', stopAll);
+window.addEventListener('touchend', stopAll);
 
+// Zoom Rueda Mouse (Universal)
 function aplicarZoom(cam, e, canvasElement) {
     const rect = canvasElement.getBoundingClientRect();
     const mouseX = (e.clientX - rect.left) * window.devicePixelRatio;
@@ -244,16 +269,32 @@ canvasSec.addEventListener('wheel', e => { e.preventDefault(); aplicarZoom(appSt
 canvasPlanta.addEventListener('wheel', e => { e.preventDefault(); aplicarZoom(appState.cameras.planta, e, canvasPlanta); }, { passive: false });
 canvasPerfil.addEventListener('wheel', e => { e.preventDefault(); aplicarZoom(appState.cameras.perfil, e, canvasPerfil); }, { passive: false });
 
+// HUD (Sección) - CÁLCULO PRECISO
 function updateHUD(e) {
+    // Si no se ha dibujado nada, appState.transform no existe y salimos
     if (!appState.secciones || !appState.transform) return;
+    
     const pos = getPos(e);
     const cam = appState.cameras.seccion;
     const rect = canvasSec.getBoundingClientRect();
+    
+    // 1. Convertir Coordenada Pantalla -> Coordenada Canvas (Mundo Visual)
     const vx = ((pos.x - rect.left) * window.devicePixelRatio - cam.x) / cam.zoom;
     const vy = ((pos.y - rect.top) * window.devicePixelRatio - cam.y) / cam.zoom;
+    
     appState.lastClick = { x: vx, y: vy }; 
+
+    // 2. Convertir Coordenada Canvas -> Coordenada Ingeniería (Inversa de seccion.js)
+    // Formula original: CanvasX = MarginX + (Valor - MinX) * Scale
+    // Formula inversa:  Valor   = ((CanvasX - MarginX) / Scale) + MinX
     const rx = ((vx - appState.transform.mx) / appState.transform.scale) + appState.transform.minX;
+    
+    // Formula original Y: CanvasY = H - (MarginY + (Valor - MinY) * Scale)
+    // Despejando: H - CanvasY = MarginY + (Valor - MinY) * Scale
+    //             (H - CanvasY - MarginY) / Scale = Valor - MinY
+    //             Valor = ((H - CanvasY - MarginY) / Scale) + MinY
     const ry = ((canvasSec.height - vy - appState.transform.my) / appState.transform.scale) + appState.transform.minY;
+    
     const hud = document.getElementById('hud');
     if (hud) {
         hud.style.display = 'block';
@@ -287,6 +328,7 @@ function buscarProgresiva(texto) {
     syncAllViews();
 }
 
+// RESIZE
 function resizeAll() {
     ['visorCanvas', 'canvasPlanta', 'canvasPerfil'].forEach(id => {
         const c = document.getElementById(id);
@@ -311,10 +353,7 @@ if (document.getElementById('panel-planta')) observerPlanta.observe(document.get
 window.onload = resizeAll;
 window.onresize = resizeAll;
 
-/* ==========================================================================
-   LÓGICA DEL PANEL DE AJUSTES (V2.3)
-   ========================================================================== */
-
+// AJUSTES
 function openTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.setting-tab').forEach(el => el.classList.remove('active'));
@@ -330,44 +369,35 @@ function openTab(tabId) {
 function toggleSettings() {
     const modal = document.getElementById('settingsModal');
     if (!modal) return;
-
     const isHidden = modal.style.display === 'none';
     modal.style.display = isHidden ? 'flex' : 'none';
-    
     const btnSettings = document.querySelector('.btn-settings');
-    if (btnSettings) {
-        isHidden ? btnSettings.classList.add('active') : btnSettings.classList.remove('active');
-    }
+    if (btnSettings) { isHidden ? btnSettings.classList.add('active') : btnSettings.classList.remove('active'); }
+    if (isHidden) cargarValoresAjustes();
+}
 
-    if (isHidden) { 
-        document.getElementById('chkTheme').checked = (appConfig.general.theme === 'light');
-        document.getElementById('cfgTextScale').value = appConfig.general.textScale;
-        
-        document.getElementById('cfgGridPlanta').value = appConfig.planta.gridInterval;
-        document.getElementById('cfgGridPlantaMulti').value = appConfig.planta.gridIntervalMulti;
-        document.getElementById('chkShowGridPlanta').checked = appConfig.planta.showGrid;
-        
-        document.getElementById('cfgGridPerfilK').value = appConfig.perfil.gridK;
-        document.getElementById('cfgGridPerfilKMulti').value = appConfig.perfil.gridKMulti || 1000;
-        document.getElementById('cfgGridPerfilZ').value = appConfig.perfil.gridZ;
-        document.getElementById('cfgGridPerfilZMulti').value = appConfig.perfil.gridZMulti || 50;
-        
-        document.getElementById('cfgExajPerfil').value = appConfig.perfil.exaj;
-        document.getElementById('cfgTargetPerfil').value = appConfig.perfil.target;
-        
-        document.getElementById('cfgGridSeccionX').value = (appConfig.seccion && appConfig.seccion.gridX) ? appConfig.seccion.gridX : 5;
-        document.getElementById('cfgGridSeccionY').value = (appConfig.seccion && appConfig.seccion.gridY) ? appConfig.seccion.gridY : 5;
-    }
+function cargarValoresAjustes() {
+    document.getElementById('chkTheme').checked = (appConfig.general.theme === 'light');
+    document.getElementById('cfgTextScale').value = appConfig.general.textScale;
+    document.getElementById('cfgGridPlanta').value = appConfig.planta.gridInterval;
+    document.getElementById('cfgGridPlantaMulti').value = appConfig.planta.gridIntervalMulti;
+    document.getElementById('chkShowGridPlanta').checked = appConfig.planta.showGrid;
+    document.getElementById('cfgGridPerfilK').value = appConfig.perfil.gridK;
+    document.getElementById('cfgGridPerfilKMulti').value = appConfig.perfil.gridKMulti || 1000;
+    document.getElementById('cfgGridPerfilZ').value = appConfig.perfil.gridZ;
+    document.getElementById('cfgGridPerfilZMulti').value = appConfig.perfil.gridZMulti || 50;
+    document.getElementById('cfgExajPerfil').value = appConfig.perfil.exaj;
+    document.getElementById('cfgTargetPerfil').value = appConfig.perfil.target;
+    document.getElementById('cfgGridSeccionX').value = (appConfig.seccion && appConfig.seccion.gridX) ? appConfig.seccion.gridX : 5;
+    document.getElementById('cfgGridSeccionY').value = (appConfig.seccion && appConfig.seccion.gridY) ? appConfig.seccion.gridY : 5;
 }
 
 function applySettingsAndClose() {
     appConfig.general.textScale = parseFloat(document.getElementById('cfgTextScale').value) || 1.0;
-
     if (!appConfig.planta) appConfig.planta = {};
     appConfig.planta.gridInterval = parseFloat(document.getElementById('cfgGridPlanta').value) || 200;
     appConfig.planta.gridIntervalMulti = parseFloat(document.getElementById('cfgGridPlantaMulti').value) || 500;
     appConfig.planta.showGrid = document.getElementById('chkShowGridPlanta').checked;
-
     if (!appConfig.perfil) appConfig.perfil = {};
     appConfig.perfil.gridK = parseFloat(document.getElementById('cfgGridPerfilK').value) || 100;
     appConfig.perfil.gridKMulti = parseFloat(document.getElementById('cfgGridPerfilKMulti').value) || 1000;
@@ -375,29 +405,17 @@ function applySettingsAndClose() {
     appConfig.perfil.gridZMulti = parseFloat(document.getElementById('cfgGridPerfilZMulti').value) || 50;
     appConfig.perfil.exaj = parseFloat(document.getElementById('cfgExajPerfil').value) || 10;
     appConfig.perfil.target = document.getElementById('cfgTargetPerfil').value;
-
     if (!appConfig.seccion) appConfig.seccion = {};
     appConfig.seccion.gridX = parseFloat(document.getElementById('cfgGridSeccionX').value) || 5;
     appConfig.seccion.gridY = parseFloat(document.getElementById('cfgGridSeccionY').value) || 5;
-
     syncAllViews();
     toggleSettings();
 }
 
-function toggleTheme(checkbox) {
-    appConfig.general.theme = checkbox.checked ? 'light' : 'dark';
-    applyTheme();
-}
-
+function toggleTheme(checkbox) { appConfig.general.theme = checkbox.checked ? 'light' : 'dark'; applyTheme(); }
 function applyTheme() {
-    if (appConfig.general.theme === 'light') {
-        document.body.classList.add('light-mode');
-    } else {
-        document.body.classList.remove('light-mode');
-    }
+    if (appConfig.general.theme === 'light') document.body.classList.add('light-mode');
+    else document.body.classList.remove('light-mode');
     syncAllViews();
 }
-
-window.addEventListener('DOMContentLoaded', () => {
-    applyTheme();
-});
+window.addEventListener('DOMContentLoaded', () => { applyTheme(); });

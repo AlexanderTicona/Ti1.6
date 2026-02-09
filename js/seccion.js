@@ -1,32 +1,30 @@
+// js/seccion.js
+
 function dibujarSeccion(seccion) {
     const canvas = document.getElementById('visorCanvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
+    // CONFIGURACIÓN DE ESTILOS UNIFICADA
     const isLight = appConfig.general.theme === 'light';
     const escalaTxt = appConfig.general.textScale || 1.0;
 
     const colorGrillaSec = isLight ? "#e0e0e0" : "#222";
     const colorGrillaEje = isLight ? "rgba(0,123,255,0.4)" : "rgba(0, 251, 255, 0.4)";
-    const colorTexto     = isLight ? "#666" : "#666";
+    const colorTexto     = isLight ? "#666" : "#888"; // Unificado
     const colorTextoEje  = isLight ? "#0056b3" : "#00fbff";
     const colorTerreno   = "#8b4513";
     const colorCorredor  = isLight ? "#007bff" : "#00fbff";
     const colorCursor    = isLight ? "#007bff" : "#00fbff";
     const colorCursorStroke = isLight ? "#fff" : "white";
 
-    const rect = canvas.parentNode.getBoundingClientRect();
-    canvas.width = rect.width * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
     const W = canvas.width, H = canvas.height;
-
     ctx.clearRect(0, 0, W, H);
     if (!seccion) return;
 
-    // Calcular límites locales
-    let minX = -10, maxX = 10, minY = 9999, maxY = -9999;
+    // 1. CÁLCULO DE LÍMITES
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     
-    // Función helper para escanear arrays planos [x,y,x,y...]
     const escanear = (listas) => {
         if (!listas) return;
         listas.forEach(obj => {
@@ -41,95 +39,105 @@ function dibujarSeccion(seccion) {
     escanear(seccion.t);
     escanear(seccion.c);
 
-    if (minY > maxY) { minY = 0; maxY = 10; }
+    if (minY > maxY) { minY = 0; maxY = 10; minX = -10; maxX = 10; }
 
     const rangeX = (maxX - minX) * 1.4;
     const rangeY = (maxY - minY) * 1.4;
     const scale = Math.min(W / rangeX, H / rangeY);
+    
     const centroX = (minX + maxX) / 2;
     const centroY = (minY + maxY) / 2;
 
-    const toX = (v) => (W / 2) + (v - centroX) * scale;
-    const toY = (v) => (H / 2) - (v - centroY) * scale;
+    const marginX = (W - (maxX - minX) * scale) / 2;
+    const marginY = (H - (maxY - minY) * scale) / 2; // Centrado vertical
+
+    // GUARDAR TRANSFORMACIÓN PARA HUD (CRÍTICO)
+    appState.transform = { minX, minY, scale, mx: marginX, my: marginY };
+
+    const toX = (v) => marginX + (v - minX) * scale;
+    const toY = (v) => H - (marginY + (v - minY) * scale);
 
     ctx.save();
     const cam = appState.cameras.seccion;
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.zoom, cam.zoom);
 
-    // --- GRILLA DESDE APPCONFIG (CORREGIDO) ---
-    // Antes leía document.getElementById('inpGridX'), ¡eso estaba mal!
-    let gStepX = appConfig.seccion.gridX || 5;
-    let gStepY = appConfig.seccion.gridY || 5;
-    if (gStepX <= 0) gStepX = 5; if (gStepY <= 0) gStepY = 5;
+    // 2. GRILLA (4 LADOS)
+    let gX = appConfig.seccion.gridX || 5;
+    let gY = appConfig.seccion.gridY || 5;
+    if (gX <= 0) gX = 5; if (gY <= 0) gY = 5;
 
-    ctx.font = `${(12 * escalaTxt) / cam.zoom}px Arial`;
-    const yTextoFijo = (H - cam.y - 20) / cam.zoom;
-    const xTextoFijo = (10 - cam.x) / cam.zoom;
+    ctx.font = `${(11 * escalaTxt) / cam.zoom}px monospace`;
+    
+    // Posiciones fijas de los textos (Espejo)
+    const yAbajo = (H - cam.y - 15) / cam.zoom;
+    const yArriba = (15 - cam.y) / cam.zoom;
+    const xIzq = (10 - cam.x) / cam.zoom;
+    const xDerecha = (W - cam.x - 40) / cam.zoom; // 40px margen derecho
 
-    // Vertical
-    const startX = Math.floor((centroX - (W/scale)) / gStepX) * gStepX;
-    const endX = startX + (W*2/scale);
-    for (let x = startX; x <= endX; x += gStepX) {
+    // Verticales (X)
+    const sX = Math.floor((centroX - (W/scale)/cam.zoom) / gX) * gX;
+    const eX = sX + (W*2/scale)/cam.zoom;
+    
+    for (let x = sX; x <= eX; x += gX) {
         let sx = toX(x);
         const esEje = Math.abs(x) < 0.01;
         ctx.strokeStyle = esEje ? colorGrillaEje : colorGrillaSec; 
         ctx.lineWidth = (esEje ? 2 : 1) / cam.zoom;
-        ctx.beginPath(); ctx.moveTo(sx, -5000); ctx.lineTo(sx, 5000); ctx.stroke();
+        
+        ctx.beginPath(); ctx.moveTo(sx, -50000); ctx.lineTo(sx, 50000); ctx.stroke();
+        
         ctx.fillStyle = esEje ? colorTextoEje : colorTexto;
         ctx.textAlign = "center";
-        ctx.fillText(x.toFixed(1), sx, yTextoFijo);
+        ctx.fillText(x.toFixed(1), sx, yAbajo);  // Abajo
+        ctx.fillText(x.toFixed(1), sx, yArriba); // Arriba
     }
 
-    // Horizontal
-    const startY = Math.floor((centroY - (H/scale)) / gStepY) * gStepY;
-    const endY = startY + (H*2/scale);
-    for (let y = startY; y <= endY; y += gStepY) {
+    // Horizontales (Y)
+    const sY = Math.floor((centroY - (H/scale)/cam.zoom) / gY) * gY;
+    const eY = sY + (H*2/scale)/cam.zoom;
+
+    for (let y = sY; y <= eY; y += gY) {
         let sy = toY(y);
         ctx.strokeStyle = colorGrillaSec; 
         ctx.lineWidth = 1 / cam.zoom;
-        ctx.beginPath(); ctx.moveTo(-5000, sy); ctx.lineTo(5000, sy); ctx.stroke();
+        
+        ctx.beginPath(); ctx.moveTo(-50000, sy); ctx.lineTo(50000, sy); ctx.stroke();
+        
         ctx.fillStyle = colorTexto;       
         ctx.textAlign = "left";
-        ctx.fillText(y.toFixed(1), xTextoFijo, sy);
+        ctx.fillText(y.toFixed(1), xIzq, sy); // Izquierda
+        
+        ctx.textAlign = "right";
+        ctx.fillText(y.toFixed(1), xDerecha, sy); // Derecha
     }
 
-    // DIBUJAR CAPAS
-    // Terreno (t) - Array de objetos o arrays planos
+    // 3. DIBUJAR CAPAS
     if (seccion.t) {
-        ctx.strokeStyle = colorTerreno;
-        ctx.lineWidth = 2 / cam.zoom;
-        seccion.t.forEach(obj => {
-            const arr = Array.isArray(obj) ? obj : (obj.p || []);
-            dibujarPolyFlat(ctx, arr, toX, toY);
-        });
+        ctx.strokeStyle = colorTerreno; ctx.lineWidth = 2 / cam.zoom;
+        seccion.t.forEach(obj => dibujarPolyFlat(ctx, Array.isArray(obj) ? obj : obj.p, toX, toY));
     }
-    // Corredor (c)
     if (seccion.c) {
-        ctx.strokeStyle = colorCorredor;
-        ctx.lineWidth = 1.5 / cam.zoom;
-        seccion.c.forEach(obj => {
-            const arr = Array.isArray(obj) ? obj : (obj.p || []);
-            dibujarPolyFlat(ctx, arr, toX, toY);
-        });
+        ctx.strokeStyle = colorCorredor; ctx.lineWidth = 1.5 / cam.zoom;
+        seccion.c.forEach(obj => dibujarPolyFlat(ctx, Array.isArray(obj) ? obj : obj.p, toX, toY));
     }
 
-    // MIRA
+    // 4. MIRA (CROSSHAIR)
     if (appState.lastClick) {
         const px = appState.lastClick.x; const py = appState.lastClick.y;
         ctx.save();
-        ctx.shadowBlur = 15 / cam.zoom; ctx.shadowColor = colorCursor;
+        ctx.shadowBlur = 10 / cam.zoom; ctx.shadowColor = colorCursor;
         ctx.fillStyle = colorCursor; ctx.beginPath(); ctx.arc(px, py, 4 / cam.zoom, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = colorCursorStroke; ctx.lineWidth = 1.5 / cam.zoom;
-        const size = 10 / cam.zoom;
-        ctx.beginPath(); ctx.moveTo(px - size, py); ctx.lineTo(px + size, py); ctx.moveTo(px, py - size); ctx.lineTo(px, py + size); ctx.stroke();
+        const s = 10 / cam.zoom;
+        ctx.beginPath(); ctx.moveTo(px-s, py); ctx.lineTo(px+s, py); ctx.moveTo(px, py-s); ctx.lineTo(px, py+s); ctx.stroke();
         ctx.restore();
     }
     ctx.restore();
 }
 
 function dibujarPolyFlat(ctx, arr, toX, toY) {
-    if (arr.length < 2) return;
+    if (!arr || arr.length < 2) return;
     ctx.beginPath();
     ctx.moveTo(toX(arr[0]), toY(arr[1]));
     for (let i = 2; i < arr.length; i += 2) {
