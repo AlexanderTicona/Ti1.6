@@ -6,14 +6,14 @@ function dibujarSeccion(seccion) {
     const isLight = appConfig.general.theme === 'light';
     const escalaTxt = appConfig.general.textScale || 1.0;
 
-    const colorGrillaSec = isLight ? "#e0e0e0" : "#222";      
-    const colorGrillaEje = isLight ? "rgba(0,123,255,0.4)" : "rgba(0, 251, 255, 0.4)"; 
-    const colorTexto     = isLight ? "#666" : "#666";         
-    const colorTextoEje  = isLight ? "#0056b3" : "#00fbff";   
-    const colorTerreno   = "#8b4513";                         
-    const colorCorredor  = isLight ? "#007bff" : "#00fbff";   
-    const colorCursor    = isLight ? "#007bff" : "#00fbff";   
-    const colorCursorStroke = isLight ? "#fff" : "white";     
+    const colorGrillaSec = isLight ? "#e0e0e0" : "#222";
+    const colorGrillaEje = isLight ? "rgba(0,123,255,0.4)" : "rgba(0, 251, 255, 0.4)";
+    const colorTexto     = isLight ? "#666" : "#666";
+    const colorTextoEje  = isLight ? "#0056b3" : "#00fbff";
+    const colorTerreno   = "#8b4513";
+    const colorCorredor  = isLight ? "#007bff" : "#00fbff";
+    const colorCursor    = isLight ? "#007bff" : "#00fbff";
+    const colorCursorStroke = isLight ? "#fff" : "white";
 
     const rect = canvas.parentNode.getBoundingClientRect();
     canvas.width = rect.width * window.devicePixelRatio;
@@ -23,40 +23,42 @@ function dibujarSeccion(seccion) {
     ctx.clearRect(0, 0, W, H);
     if (!seccion) return;
 
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    const analizar = (pts) => {
-        if (!pts || pts.length === 0) return;
-        const esPlano = typeof pts[0] === 'number';
-        for (let i = 0; i < pts.length; i += (esPlano ? 2 : 1)) {
-            const p = esPlano ? { x: pts[i], y: pts[i+1] } : pts[i];
-            if (p.y > -500) {
-                if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
-                if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
-            }
-        }
-    };
-    if (seccion.t) seccion.t.forEach(capa => analizar(capa.p));
-    if (seccion.c) seccion.c.forEach(lista => analizar(lista));
-    if (minX === Infinity) { minX = -20; maxX = 20; minY = 2900; maxY = 2920; }
-
-    const gMinX = appState.limitesGlobales?.seccion?.minX || -100;
-    const gMaxX = appState.limitesGlobales?.seccion?.maxX || 100;
-    const gMinY = appState.limitesGlobales?.seccion?.minY || minY;
-    const gMaxY = appState.limitesGlobales?.seccion?.maxY || maxY;
-
-    const finalScale = Math.min(W / ((maxX - minX) * 1.4), H / ((maxY - minY) * 1.4));
-    const marginX = (W - (maxX - minX) * finalScale) / 2;
-    const marginY = (H - (maxY - minY) * finalScale) / 2 + 40; 
+    // Calcular límites locales
+    let minX = -10, maxX = 10, minY = 9999, maxY = -9999;
     
-    appState.transform = { minX, minY, scale: finalScale, mx: marginX, my: marginY };
-    const toX = (v) => marginX + (v - minX) * finalScale;
-    const toY = (v) => H - (marginY + (v - minY) * finalScale);
+    // Función helper para escanear arrays planos [x,y,x,y...]
+    const escanear = (listas) => {
+        if (!listas) return;
+        listas.forEach(obj => {
+            const arr = Array.isArray(obj) ? obj : (obj.p || []);
+            for (let i = 0; i < arr.length; i += 2) {
+                const x = arr[i], y = arr[i+1];
+                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                if (y < minY) minY = y; if (y > maxY) maxY = y;
+            }
+        });
+    };
+    escanear(seccion.t);
+    escanear(seccion.c);
+
+    if (minY > maxY) { minY = 0; maxY = 10; }
+
+    const rangeX = (maxX - minX) * 1.4;
+    const rangeY = (maxY - minY) * 1.4;
+    const scale = Math.min(W / rangeX, H / rangeY);
+    const centroX = (minX + maxX) / 2;
+    const centroY = (minY + maxY) / 2;
+
+    const toX = (v) => (W / 2) + (v - centroX) * scale;
+    const toY = (v) => (H / 2) - (v - centroY) * scale;
 
     ctx.save();
     const cam = appState.cameras.seccion;
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.zoom, cam.zoom);
 
+    // --- GRILLA DESDE APPCONFIG (CORREGIDO) ---
+    // Antes leía document.getElementById('inpGridX'), ¡eso estaba mal!
     let gStepX = appConfig.seccion.gridX || 5;
     let gStepY = appConfig.seccion.gridY || 5;
     if (gStepX <= 0) gStepX = 5; if (gStepY <= 0) gStepY = 5;
@@ -65,32 +67,52 @@ function dibujarSeccion(seccion) {
     const yTextoFijo = (H - cam.y - 20) / cam.zoom;
     const xTextoFijo = (10 - cam.x) / cam.zoom;
 
-    // Grilla Vertical
-    for (let x = Math.floor(gMinX / gStepX) * gStepX; x <= gMaxX; x += gStepX) {
+    // Vertical
+    const startX = Math.floor((centroX - (W/scale)) / gStepX) * gStepX;
+    const endX = startX + (W*2/scale);
+    for (let x = startX; x <= endX; x += gStepX) {
         let sx = toX(x);
         const esEje = Math.abs(x) < 0.01;
         ctx.strokeStyle = esEje ? colorGrillaEje : colorGrillaSec; 
         ctx.lineWidth = (esEje ? 2 : 1) / cam.zoom;
-        ctx.beginPath(); ctx.moveTo(sx, toY(gMinY)); ctx.lineTo(sx, toY(gMaxY)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx, -5000); ctx.lineTo(sx, 5000); ctx.stroke();
         ctx.fillStyle = esEje ? colorTextoEje : colorTexto;
         ctx.textAlign = "center";
         ctx.fillText(x.toFixed(1), sx, yTextoFijo);
     }
 
-    // Grilla Horizontal
-    for (let y = Math.floor(gMinY / gStepY) * gStepY; y <= gMaxY; y += gStepY) {
+    // Horizontal
+    const startY = Math.floor((centroY - (H/scale)) / gStepY) * gStepY;
+    const endY = startY + (H*2/scale);
+    for (let y = startY; y <= endY; y += gStepY) {
         let sy = toY(y);
         ctx.strokeStyle = colorGrillaSec; 
         ctx.lineWidth = 1 / cam.zoom;
-        ctx.beginPath(); ctx.moveTo(toX(gMinX), sy); ctx.lineTo(toX(gMaxX), sy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-5000, sy); ctx.lineTo(5000, sy); ctx.stroke();
         ctx.fillStyle = colorTexto;       
         ctx.textAlign = "left";
-        ctx.fillText(y.toFixed(1), xTextoFijo, sy - 2 / cam.zoom);
+        ctx.fillText(y.toFixed(1), xTextoFijo, sy);
     }
 
-    // CAPAS
-    if (seccion.t) seccion.t.forEach(capa => dibujarLinea(ctx, capa.p, colorTerreno, 2, toX, toY, cam.zoom));
-    if (seccion.c) seccion.c.forEach(pts => dibujarLinea(ctx, pts, colorCorredor, 1.5, toX, toY, cam.zoom));
+    // DIBUJAR CAPAS
+    // Terreno (t) - Array de objetos o arrays planos
+    if (seccion.t) {
+        ctx.strokeStyle = colorTerreno;
+        ctx.lineWidth = 2 / cam.zoom;
+        seccion.t.forEach(obj => {
+            const arr = Array.isArray(obj) ? obj : (obj.p || []);
+            dibujarPolyFlat(ctx, arr, toX, toY);
+        });
+    }
+    // Corredor (c)
+    if (seccion.c) {
+        ctx.strokeStyle = colorCorredor;
+        ctx.lineWidth = 1.5 / cam.zoom;
+        seccion.c.forEach(obj => {
+            const arr = Array.isArray(obj) ? obj : (obj.p || []);
+            dibujarPolyFlat(ctx, arr, toX, toY);
+        });
+    }
 
     // MIRA
     if (appState.lastClick) {
@@ -106,13 +128,12 @@ function dibujarSeccion(seccion) {
     ctx.restore();
 }
 
-function dibujarLinea(ctx, pts, color, width, toX, toY, zoom) {
-    ctx.strokeStyle = color; ctx.lineWidth = width / zoom;
+function dibujarPolyFlat(ctx, arr, toX, toY) {
+    if (arr.length < 2) return;
     ctx.beginPath();
-    const esPlano = typeof pts[0] === 'number';
-    for (let i = 0; i < pts.length; i += (esPlano ? 2 : 1)) {
-        const p = esPlano ? { x: pts[i], y: pts[i+1] } : pts[i];
-        i === 0 ? ctx.moveTo(toX(p.x), toY(p.y)) : ctx.lineTo(toX(p.x), toY(p.y));
+    ctx.moveTo(toX(arr[0]), toY(arr[1]));
+    for (let i = 2; i < arr.length; i += 2) {
+        ctx.lineTo(toX(arr[i]), toY(arr[i+1]));
     }
     ctx.stroke();
 }

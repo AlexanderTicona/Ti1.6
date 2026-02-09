@@ -16,7 +16,6 @@ function dibujarPerfil() {
     ctx.clearRect(0, 0, W, H);
 
     const { minK, maxK, minZ, maxZ } = appState.encuadre.perfil;
-    const { minK: gMinK, maxK: gMaxK, minZ: gMinZ, maxZ: gMaxZ } = appState.limitesGlobales.perfil;
     const centroK = (minK + maxK) / 2;
     const centroZ = (minZ + maxZ) / 2;
 
@@ -34,20 +33,12 @@ function dibujarPerfil() {
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.zoom, cam.zoom);
 
-    // --- GRILLA INTELIGENTE ---
-    // 1. Detectar modo Mini
+    // GRILLA INTELIGENTE
     const dashboard = document.getElementById('main-dashboard');
     const esModoMini = dashboard && dashboard.classList.contains('layout-multi');
 
-    // 2. Seleccionar intervalo (PK)
-    let gStepK = esModoMini 
-        ? (appConfig.perfil.gridKMulti || 1000) 
-        : (appConfig.perfil.gridK || 100);
-
-    // 3. Seleccionar intervalo (Cota)
-    let gStepZ = esModoMini 
-        ? (appConfig.perfil.gridZMulti || 50) 
-        : (appConfig.perfil.gridZ || 5);
+    let gStepK = esModoMini ? (appConfig.perfil.gridKMulti || 1000) : (appConfig.perfil.gridK || 100);
+    let gStepZ = esModoMini ? (appConfig.perfil.gridZMulti || 50) : (appConfig.perfil.gridZ || 5);
     
     if (gStepK <= 0) gStepK = 100;
     if (gStepZ <= 0) gStepZ = 5;
@@ -59,63 +50,74 @@ function dibujarPerfil() {
     const yTextoFijo = (H - cam.y - 30) / cam.zoom; 
     const xTextoFijo = (10 - cam.x) / cam.zoom;
 
-    // Dibujo Vertical (PKs)
-    for (let k = Math.ceil(gMinK / gStepK) * gStepK; k <= gMaxK; k += gStepK) {
+    // Vertical
+    const sK = Math.floor(minK / gStepK) * gStepK;
+    for (let k = sK; k <= maxK; k += gStepK) {
         let sx = toX(k);
         ctx.strokeStyle = colorGrilla; 
-        ctx.beginPath(); ctx.moveTo(sx, toY(gMinZ)); ctx.lineTo(sx, toY(gMaxZ)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(sx, -50000); ctx.lineTo(sx, 50000); ctx.stroke();
         ctx.textAlign = "center";
         ctx.fillText(k.toFixed(0), sx, yTextoFijo);
     }
     
-    // Dibujo Horizontal (Cotas)
-    for (let z = Math.ceil(gMinZ / gStepZ) * gStepZ; z <= gMaxZ; z += gStepZ) {
+    // Horizontal
+    const sZ = Math.floor(minZ / gStepZ) * gStepZ;
+    for (let z = sZ; z <= maxZ; z += gStepZ) {
         let sy = toY(z);
         ctx.strokeStyle = colorGrilla; 
-        ctx.beginPath(); ctx.moveTo(toX(gMinK), sy); ctx.lineTo(toX(gMaxK), sy); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-50000, sy); ctx.lineTo(50000, sy); ctx.stroke();
         ctx.textAlign = "left";
         ctx.fillText(z.toFixed(1), xTextoFijo, sy - 2 / cam.zoom);
     }
 
-    // --- PERFILES ---
-    Object.values(appState.perfil.perfiles).forEach(p => {
+    // PERFILES (Iterar Array de Objetos)
+    appState.perfil.forEach(p => {
         ctx.beginPath();
-        ctx.strokeStyle = p.tipo.includes("Surface") ? colorTerreno : colorRasante;
-        ctx.lineWidth = (p.tipo.includes("Surface") ? 1.5 : 2.5) / cam.zoom;
-        p.datos.forEach((pt, i) => {
-            if (i === 0) ctx.moveTo(toX(pt.k), toY(pt.z));
-            else ctx.lineTo(toX(pt.k), toY(pt.z));
-        });
+        // Detección simple de tipo por nombre (o podrías exportar 'tipo' en el JSON)
+        // Si no hay tipo explícito, asumimos Terreno si tiene "TN" o "Surface" en el nombre
+        const esTerreno = (p.tipo && p.tipo.includes("Surface")) || (p.nombre && (p.nombre.includes("TN") || p.nombre.includes("Surface")));
+        ctx.strokeStyle = esTerreno ? colorTerreno : colorRasante;
+        
+        ctx.lineWidth = (esTerreno ? 1.5 : 2.5) / cam.zoom;
+        
+        if (p.data) {
+            p.data.forEach((pt, i) => {
+                const k = pt[0], z = pt[1];
+                if (i === 0) ctx.moveTo(toX(k), toY(z));
+                else ctx.lineTo(toX(k), toY(z));
+            });
+        }
         ctx.stroke();
     });
 
-    // --- PUNTO ROJO ---
+    // PUNTO ROJO
     if (appState.secciones && appState.secciones.length > 0) {
         const pkActual = appState.secciones[appState.currentIdx].k;
         const xPos = toX(pkActual);
 
         ctx.setLineDash([5, 5]); ctx.strokeStyle = "rgba(255, 0, 0, 0.5)"; ctx.lineWidth = 1 / cam.zoom;
-        ctx.beginPath(); ctx.moveTo(xPos, toY(gMinZ)); ctx.lineTo(xPos, toY(gMaxZ)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(xPos, -5000); ctx.lineTo(xPos, 5000); ctx.stroke();
         ctx.setLineDash([]);
 
-        // Lógica de "Target" (Qué puntos mostrar)
         const target = appConfig.perfil.target || 'all';
 
-        Object.values(appState.perfil.perfiles).forEach(p => {
-            // Filtrar si el usuario pidió solo Rasante o solo Terreno
-            const esTerreno = p.tipo.includes("Surface");
+        appState.perfil.forEach(p => {
+            const esTerreno = (p.tipo && p.tipo.includes("Surface"));
             if (target === 'rasante' && esTerreno) return;
             if (target === 'terreno' && !esTerreno) return;
 
-            const pt = p.datos.find(d => Math.abs(d.k - pkActual) < 5); 
-            if (pt) {
-                ctx.fillStyle = "red";
-                ctx.beginPath(); ctx.arc(toX(pt.k), toY(pt.z), 6 / cam.zoom, 0, Math.PI * 2); ctx.fill();
-                
-                ctx.fillStyle = colorTxtPto; 
-                ctx.font = `bold ${(11 * escalaTxt) / cam.zoom}px Arial`;
-                ctx.textAlign = "left";
-                ctx.fillText(`Z: ${pt.z.toFixed(2)}`, toX(pt.k) + 8 / cam.zoom, toY(pt.z) - 8 / cam.zoom);
+            if (p.data) {
+                // Buscar punto cercano
+                const pt = p.data.find(d => Math.abs(d[0] - pkActual) < 5); 
+                if (pt) {
+                    ctx.fillStyle = "red";
+                    ctx.beginPath(); ctx.arc(toX(pt[0]), toY(pt[1]), 6 / cam.zoom, 0, Math.PI * 2); ctx.fill();
+                    
+                    ctx.fillStyle = colorTxtPto; 
+                    ctx.font = `bold ${(11 * escalaTxt) / cam.zoom}px Arial`;
+                    ctx.textAlign = "left";
+                    ctx.fillText(`Z: ${pt[1].toFixed(2)}`, toX(pt[0]) + 8 / cam.zoom, toY(pt[1]) - 8 / cam.zoom);
+                }
             }
         });
     }

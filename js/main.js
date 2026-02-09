@@ -14,11 +14,8 @@ document.addEventListener('touchend', e => {
 
 // 2. GESTIÓN DE LAYOUTS
 function changeLayout(newLayout) {
-    // Si ajustes está abierto, lo cerramos
     const modal = document.getElementById('settingsModal');
-    if (modal && modal.style.display !== 'none') {
-        toggleSettings();
-    }
+    if (modal && modal.style.display !== 'none') toggleSettings();
 
     const dashboard = document.getElementById('main-dashboard');
     if (!dashboard) return;
@@ -32,84 +29,137 @@ function changeLayout(newLayout) {
     requestAnimationFrame(() => {
         resizeAll(); 
         if (appState.planta) resetView('planta');
-        if (appState.secciones.length > 0) resetView('seccion');
+        if (appState.secciones && appState.secciones.length > 0) resetView('seccion');
         if (appState.perfil) resetView('perfil');
         syncAllViews(); 
     });
 }
 
-// 3. LECTOR DE ARCHIVOS (Igual que antes)
+// 3. LECTOR DE ARCHIVOS (.TIQAL / JSON OPTIMIZADO)
 document.getElementById('fileInput').addEventListener('change', function(e) {
     const reader = new FileReader();
     reader.onload = (event) => {
         try {
             const raw = JSON.parse(event.target.result);
+            let datosCargados = false;
 
-            if (raw.geometria) {
-                appState.planta = raw;
+            // --- A. PLANTA ---
+            // Soporta 'planta_trazo' (Nuevo C#) o 'planta' (C# Simple)
+            const plantaArr = raw.planta_trazo || raw.planta;
+            
+            if (plantaArr) {
+                appState.planta = raw; // Guardamos la raíz
                 let minE = Infinity, maxE = -Infinity, minN = Infinity, maxN = -Infinity;
-                raw.geometria.forEach(p => {
-                    if (p.e < minE) minE = p.e; if (p.e > maxE) maxE = p.e;
-                    if (p.n < minN) minN = p.n; if (p.n > maxN) maxN = p.n;
-                });
-                appState.limitesGlobales.planta = { minE: minE-1000, maxE: maxE+1000, minN: minN-1000, maxN: maxN+1000 };
-                appState.encuadre.planta = { minE, maxE, minN, maxN };
-                resizeAll(); resetView('planta'); alert("✅ Planta cargada"); return;
-            }
-            if (raw.perfiles) {
-                appState.perfil = raw;
-                let minK = Infinity, maxK = -Infinity, minZ = Infinity, maxZ = -Infinity;
-                Object.values(raw.perfiles).forEach(p => {
-                    p.datos.forEach(pt => {
-                        if (pt.k < minK) minK = pt.k; if (pt.k > maxK) maxK = pt.k;
-                        if (pt.z < minZ) minZ = pt.z; if (pt.z > maxZ) maxZ = pt.z;
-                    });
-                });
-                const altoZ = maxZ - minZ;
-                appState.limitesGlobales.perfil = { minK, maxK, minZ: minZ-(altoZ*0.1), maxZ: maxZ+(altoZ*0.1) };
-                appState.encuadre.perfil = { minK, maxK, minZ, maxZ };
-                resizeAll(); resetView('perfil'); return;
-            }
-            appState.secciones = raw.data || (Array.isArray(raw) ? raw : []);
-            if (appState.secciones.length > 0) {
-                let gMinY = Infinity, gMaxY = -Infinity;
-                appState.secciones.forEach(sec => {
-                    const capas = [];
-                    if (sec.t) sec.t.forEach(c => capas.push(c.p));
-                    if (sec.c) sec.c.forEach(c => capas.push(c));
-                    capas.forEach(pts => {
-                        const esPlano = typeof pts[0] === 'number';
-                        for (let i = 0; i < pts.length; i += (esPlano ? 2 : 1)) {
-                            const p = esPlano ? { x: pts[i], y: pts[i+1] } : pts[i];
-                            if (p && p.y > -500) { if (p.y < gMinY) gMinY = p.y; if (p.y > gMaxY) gMaxY = p.y; }
-                        }
-                    });
-                });
-                if (gMinY === Infinity) { gMinY = 0; gMaxY = 100; }
-                const altoOriginal = gMaxY - gMinY;
-                appState.limitesGlobales.seccion = { minX: -100, maxX: 100, minY: gMinY-(altoOriginal*0.1), maxY: gMaxY+(altoOriginal*0.1) };
                 
-                // Encuadre inicial basado en la primera sección
-                let sMinX = Infinity, sMaxX = -Infinity, sMinY = Infinity, sMaxY = -Infinity;
-                const sec1 = appState.secciones[0];
-                const pts1 = [];
-                if (sec1.t) sec1.t.forEach(c => pts1.push(...c.p));
-                if (sec1.c) sec1.c.forEach(c => pts1.push(...c));
-                pts1.forEach((p, idx) => {
-                    const esNum = typeof p === 'number';
-                    const x = esNum ? p : p.x; const y = esNum ? pts1[idx+1] : p.y;
-                    if (esNum && idx%2 !== 0) return;
-                    if (x < sMinX) sMinX = x; if (x > sMaxX) sMaxX = x;
-                    if (y > -500) { if (y < sMinY) sMinY = y; if (y > sMaxY) sMaxY = y; }
+                // Iteramos arrays [x, y] o [k, x, y]
+                plantaArr.forEach(pt => {
+                    // Si viene [k, x, y] el este es [1], si viene [x, y] es [0]
+                    const x = pt.length === 3 ? pt[1] : pt[0];
+                    const y = pt.length === 3 ? pt[2] : pt[1];
+                    if (x < minE) minE = x; if (x > maxE) maxE = x;
+                    if (y < minN) minN = y; if (y > maxN) maxN = y;
                 });
-                appState.encuadre.seccion = { minX: sMinX, maxX: sMaxX, minY: sMinY, maxY: sMaxY };
+
+                appState.limitesGlobales.planta = { 
+                    minE: minE - 500, maxE: maxE + 500, 
+                    minN: minN - 500, maxN: maxN + 500 
+                };
+                appState.encuadre.planta = { minE, maxE, minN, maxN };
+                datosCargados = true;
+            }
+
+            // --- B. PERFIL ---
+            if (raw.perfiles) {
+                appState.perfil = raw.perfiles; // Array de objetos
+                let minK = Infinity, maxK = -Infinity, minZ = Infinity, maxZ = -Infinity;
+                
+                raw.perfiles.forEach(p => {
+                    if (p.data) {
+                        p.data.forEach(pt => {
+                            // pt es [k, z]
+                            const k = pt[0], z = pt[1];
+                            if (k < minK) minK = k; if (k > maxK) maxK = k;
+                            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+                        });
+                    }
+                });
+
+                if (minK !== Infinity) {
+                    const altoZ = maxZ - minZ;
+                    appState.limitesGlobales.perfil = {
+                        minK: minK, maxK: maxK,
+                        minZ: minZ - (altoZ * 0.2), maxZ: maxZ + (altoZ * 0.2)
+                    };
+                    appState.encuadre.perfil = { minK, maxK, minZ, maxZ };
+                    datosCargados = true;
+                }
+            }
+
+            // --- C. SECCIONES ---
+            if (raw.secciones) {
+                appState.secciones = raw.secciones;
+                
+                // Calcular límites globales para auto-zoom
+                let gMinY = Infinity, gMaxY = -Infinity;
+                
+                // Muestreo rápido para velocidad
+                const pasoScan = raw.secciones.length > 500 ? 10 : 1; 
+
+                for (let k = 0; k < raw.secciones.length; k += pasoScan) {
+                    const sec = raw.secciones[k];
+                    // Helper para leer [x,y,x,y...]
+                    const escanear = (listas) => {
+                        if (!listas) return;
+                        listas.forEach(obj => {
+                            // obj puede ser {p: [...]} o directo [...]
+                            const arr = Array.isArray(obj) ? obj : (obj.p || []);
+                            for (let i = 1; i < arr.length; i+=2) {
+                                const y = arr[i];
+                                if (y > -1000 && y < 8000) { 
+                                    if (y < gMinY) gMinY = y; 
+                                    if (y > gMaxY) gMaxY = y; 
+                                }
+                            }
+                        });
+                    };
+                    escanear(sec.t);
+                    escanear(sec.c);
+                }
+
+                if (gMinY === Infinity) { gMinY = 0; gMaxY = 20; }
+                const alto = gMaxY - gMinY;
+                
+                appState.limitesGlobales.seccion = {
+                    minX: -50, maxX: 50,
+                    minY: gMinY - (alto * 0.1), maxY: gMaxY + (alto * 0.1)
+                };
+                
+                // Encuadre inicial (Sección 0)
+                appState.encuadre.seccion = { minX: -20, maxX: 20, minY: gMinY, maxY: gMaxY };
 
                 const slider = document.getElementById('stationSlider');
-                slider.max = appState.secciones.length - 1; slider.value = 0;
+                slider.max = appState.secciones.length - 1;
+                slider.value = 0;
                 appState.currentIdx = 0;
-                resizeAll(); resetView('seccion'); alert("✅ Secciones cargadas");
+                
+                datosCargados = true;
             }
-        } catch (err) { console.error("Error:", err); alert("❌ Estructura de JSON no reconocida"); }
+
+            if (datosCargados) {
+                resizeAll();
+                resetView('planta');
+                resetView('perfil');
+                resetView('seccion');
+                syncAllViews();
+                alert("✅ Archivo TiQAL cargado correctamente");
+            } else {
+                alert("⚠️ El archivo no contiene datos válidos.");
+            }
+
+        } catch (err) { 
+            console.error(err);
+            alert("❌ Error leyendo archivo."); 
+        }
     };
     reader.readAsText(e.target.files[0]);
 });
@@ -213,7 +263,7 @@ function updateHUD(e) {
     syncAllViews();
 }
 
-// Slider y Búsqueda
+// SLIDER Y BUSQUEDA
 document.getElementById('stationSlider').addEventListener('input', (e) => {
     appState.currentIdx = parseInt(e.target.value);
     syncAllViews();
@@ -262,7 +312,7 @@ window.onload = resizeAll;
 window.onresize = resizeAll;
 
 /* ==========================================================================
-   LÓGICA DEL PANEL DE AJUSTES (V2.3 - FIX GUARDADO)
+   LÓGICA DEL PANEL DE AJUSTES (V2.3)
    ========================================================================== */
 
 function openTab(tabId) {
@@ -290,53 +340,42 @@ function toggleSettings() {
     }
 
     if (isHidden) { 
-        // AL ABRIR: Cargar configuración
         document.getElementById('chkTheme').checked = (appConfig.general.theme === 'light');
         document.getElementById('cfgTextScale').value = appConfig.general.textScale;
         
-        // Planta
         document.getElementById('cfgGridPlanta').value = appConfig.planta.gridInterval;
         document.getElementById('cfgGridPlantaMulti').value = appConfig.planta.gridIntervalMulti;
         document.getElementById('chkShowGridPlanta').checked = appConfig.planta.showGrid;
         
-        // Perfil (Actualizado con Multi)
         document.getElementById('cfgGridPerfilK').value = appConfig.perfil.gridK;
-        document.getElementById('cfgGridPerfilKMulti').value = appConfig.perfil.gridKMulti || 1000; // <--- NUEVO
+        document.getElementById('cfgGridPerfilKMulti').value = appConfig.perfil.gridKMulti || 1000;
         document.getElementById('cfgGridPerfilZ').value = appConfig.perfil.gridZ;
-        document.getElementById('cfgGridPerfilZMulti').value = appConfig.perfil.gridZMulti || 50;   // <--- NUEVO
+        document.getElementById('cfgGridPerfilZMulti').value = appConfig.perfil.gridZMulti || 50;
         
         document.getElementById('cfgExajPerfil').value = appConfig.perfil.exaj;
         document.getElementById('cfgTargetPerfil').value = appConfig.perfil.target;
         
-        // Sección
         document.getElementById('cfgGridSeccionX').value = (appConfig.seccion && appConfig.seccion.gridX) ? appConfig.seccion.gridX : 5;
         document.getElementById('cfgGridSeccionY').value = (appConfig.seccion && appConfig.seccion.gridY) ? appConfig.seccion.gridY : 5;
     }
 }
 
 function applySettingsAndClose() {
-    // AL GUARDAR: Actualizar appConfig
-    
-    // 1. General
     appConfig.general.textScale = parseFloat(document.getElementById('cfgTextScale').value) || 1.0;
 
-    // 2. Planta
     if (!appConfig.planta) appConfig.planta = {};
     appConfig.planta.gridInterval = parseFloat(document.getElementById('cfgGridPlanta').value) || 200;
     appConfig.planta.gridIntervalMulti = parseFloat(document.getElementById('cfgGridPlantaMulti').value) || 500;
     appConfig.planta.showGrid = document.getElementById('chkShowGridPlanta').checked;
 
-    // 3. Perfil (Actualizado con Multi)
     if (!appConfig.perfil) appConfig.perfil = {};
     appConfig.perfil.gridK = parseFloat(document.getElementById('cfgGridPerfilK').value) || 100;
-    appConfig.perfil.gridKMulti = parseFloat(document.getElementById('cfgGridPerfilKMulti').value) || 1000; // <--- NUEVO
+    appConfig.perfil.gridKMulti = parseFloat(document.getElementById('cfgGridPerfilKMulti').value) || 1000;
     appConfig.perfil.gridZ = parseFloat(document.getElementById('cfgGridPerfilZ').value) || 5;
-    appConfig.perfil.gridZMulti = parseFloat(document.getElementById('cfgGridPerfilZMulti').value) || 50;   // <--- NUEVO
-    
+    appConfig.perfil.gridZMulti = parseFloat(document.getElementById('cfgGridPerfilZMulti').value) || 50;
     appConfig.perfil.exaj = parseFloat(document.getElementById('cfgExajPerfil').value) || 10;
     appConfig.perfil.target = document.getElementById('cfgTargetPerfil').value;
 
-    // 4. Sección
     if (!appConfig.seccion) appConfig.seccion = {};
     appConfig.seccion.gridX = parseFloat(document.getElementById('cfgGridSeccionX').value) || 5;
     appConfig.seccion.gridY = parseFloat(document.getElementById('cfgGridSeccionY').value) || 5;
@@ -359,7 +398,6 @@ function applyTheme() {
     syncAllViews();
 }
 
-// Inicializar
 window.addEventListener('DOMContentLoaded', () => {
     applyTheme();
 });
