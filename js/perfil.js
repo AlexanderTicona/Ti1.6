@@ -3,13 +3,13 @@ function dibujarPerfil() {
     if (!canvas || !appState.perfil) return;
     const ctx = canvas.getContext('2d');
     
+    // --- ESTILOS GENERALES ---
     const isLight = appConfig.general.theme === 'light';
     const escalaTxt = appConfig.general.textScale || 1.0;
 
-    const colorGrilla = isLight ? "rgba(0, 0, 0, 0.15)" : "rgba(255, 255, 255, 0.05)";
-    const colorTexto  = isLight ? "#444" : "rgba(255, 255, 255, 0.4)";
-    const colorTerreno= isLight ? "#2e7d32" : "#4CAF50"; 
-    const colorRasante= isLight ? "#0056b3" : "#00fbff"; 
+    // Grilla Unificada (Gris)
+    const colorGrilla = isLight ? "#e0e0e0" : "#222";
+    const colorTexto  = isLight ? "#666" : "#888";
     const colorTxtPto = isLight ? "#000" : "white";      
 
     const W = canvas.width, H = canvas.height;
@@ -33,7 +33,7 @@ function dibujarPerfil() {
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.zoom, cam.zoom);
 
-    // GRILLA INTELIGENTE
+    // --- GRILLA UNIFORME CON COLCHÓN (GAP) ---
     const dashboard = document.getElementById('main-dashboard');
     const esModoMini = dashboard && dashboard.classList.contains('layout-multi');
 
@@ -45,40 +45,68 @@ function dibujarPerfil() {
     
     ctx.lineWidth = 1 / cam.zoom;
     ctx.font = `${(11 * escalaTxt) / cam.zoom}px monospace`;
-    ctx.fillStyle = colorTexto; 
+    ctx.strokeStyle = colorGrilla; 
+    
+    const yAbajo = (H - cam.y - 30) / cam.zoom; 
+    const yArriba = (15 - cam.y) / cam.zoom;
+    const xIzq = (10 - cam.x) / cam.zoom;
+    const xDerecha = (W - cam.x - 50) / cam.zoom;
 
-    const yTextoFijo = (H - cam.y - 30) / cam.zoom; 
-    const xTextoFijo = (10 - cam.x) / cam.zoom;
+    // --- AQUÍ ESTÁ EL TRUCO DEL GAP ---
+    const lineasExtra = 5; // <--- Cambia este número: 5 líneas más de margen
+    const gapK = gStepK * lineasExtra; // Ej: 500m extra a cada lado
+    const gapZ = gStepZ * lineasExtra; // Ej: 25m extra arriba y abajo
 
-    // Vertical
-    const sK = Math.floor(minK / gStepK) * gStepK;
-    for (let k = sK; k <= maxK; k += gStepK) {
+    // 1. Vertical (PK) - Con Gap
+    // Empezamos antes del mínimo y terminamos después del máximo
+    const startK = Math.floor((minK - gapK) / gStepK) * gStepK;
+    const endK   = maxK + gapK;
+
+    for (let k = startK; k <= endK; k += gStepK) {
         let sx = toX(k);
-        ctx.strokeStyle = colorGrilla; 
+        // Dibujamos líneas muy largas verticales para cubrir el gap de altura
         ctx.beginPath(); ctx.moveTo(sx, -50000); ctx.lineTo(sx, 50000); ctx.stroke();
+        
+        ctx.fillStyle = colorTexto;
         ctx.textAlign = "center";
-        ctx.fillText(k.toFixed(0), sx, yTextoFijo);
+        ctx.fillText(k.toFixed(0), sx, yAbajo);
+        ctx.fillText(k.toFixed(0), sx, yArriba);
     }
     
-    // Horizontal
-    const sZ = Math.floor(minZ / gStepZ) * gStepZ;
-    for (let z = sZ; z <= maxZ; z += gStepZ) {
+    // 2. Horizontal (Cota) - Con Gap
+    // Empezamos más abajo del mínimo y terminamos más arriba del máximo
+    const startZ = Math.floor((minZ - gapZ) / gStepZ) * gStepZ;
+    const endZ   = maxZ + gapZ;
+
+    for (let z = startZ; z <= endZ; z += gStepZ) {
         let sy = toY(z);
-        ctx.strokeStyle = colorGrilla; 
+        // Dibujamos líneas muy largas horizontales para cubrir el gap de ancho
         ctx.beginPath(); ctx.moveTo(-50000, sy); ctx.lineTo(50000, sy); ctx.stroke();
+        
+        ctx.fillStyle = colorTexto;
         ctx.textAlign = "left";
-        ctx.fillText(z.toFixed(1), xTextoFijo, sy - 2 / cam.zoom);
+        ctx.fillText(z.toFixed(1), xIzq, sy - 2 / cam.zoom);
+        ctx.textAlign = "right";
+        ctx.fillText(z.toFixed(1), xDerecha, sy - 2 / cam.zoom);
     }
 
-    // PERFILES (Iterar Array de Objetos)
-    appState.perfil.forEach(p => {
-        ctx.beginPath();
-        // Detección simple de tipo por nombre (o podrías exportar 'tipo' en el JSON)
-        // Si no hay tipo explícito, asumimos Terreno si tiene "TN" o "Surface" en el nombre
-        const esTerreno = (p.tipo && p.tipo.includes("Surface")) || (p.nombre && (p.nombre.includes("TN") || p.nombre.includes("Surface")));
-        ctx.strokeStyle = esTerreno ? colorTerreno : colorRasante;
+    // --- DIBUJAR PERFILES (CON GESTOR DE CAPAS) ---
+    // Usamos appConfig.layers.perfil para obtener colores y visibilidad
+    appState.perfil.forEach((p, idx) => {
+        const nombre = p.nombre || `Perfil ${idx+1}`;
         
-        ctx.lineWidth = (esTerreno ? 1.5 : 2.5) / cam.zoom;
+        // Buscar estilo en la configuración (si existe)
+        // Si no existe (caso raro de carga asíncrona), usa fallback
+        const style = (appConfig.layers && appConfig.layers.perfil && appConfig.layers.perfil[nombre])
+                      ? appConfig.layers.perfil[nombre]
+                      : { visible: true, color: '#fff', width: 2 };
+
+        // Si la capa está apagada, saltamos
+        if (!style.visible) return;
+
+        ctx.beginPath();
+        ctx.strokeStyle = style.color;
+        ctx.lineWidth = style.width / cam.zoom;
         
         if (p.data) {
             p.data.forEach((pt, i) => {
@@ -90,33 +118,48 @@ function dibujarPerfil() {
         ctx.stroke();
     });
 
-    // PUNTO ROJO
+    // --- PUNTO ROJO (RASTREO INTELIGENTE) ---
     if (appState.secciones && appState.secciones.length > 0) {
         const pkActual = appState.secciones[appState.currentIdx].k;
         const xPos = toX(pkActual);
 
+        // Línea guía vertical
         ctx.setLineDash([5, 5]); ctx.strokeStyle = "rgba(255, 0, 0, 0.5)"; ctx.lineWidth = 1 / cam.zoom;
         ctx.beginPath(); ctx.moveTo(xPos, -5000); ctx.lineTo(xPos, 5000); ctx.stroke();
         ctx.setLineDash([]);
 
-        const target = appConfig.perfil.target || 'all';
+        // Configuración de Rastreo
+        const targetName = appConfig.perfil.target || 'auto';
+        let foundAuto = false; // Flag para rastrear solo UNO si es auto
 
-        appState.perfil.forEach(p => {
-            const esTerreno = (p.tipo && p.tipo.includes("Surface"));
-            if (target === 'rasante' && esTerreno) return;
-            if (target === 'terreno' && !esTerreno) return;
+        appState.perfil.forEach((p, idx) => {
+            const nombre = p.nombre || `Perfil ${idx+1}`;
+            
+            // Si el modo es específico y el nombre no coincide, saltar
+            if (targetName !== 'auto' && nombre !== targetName) return;
+
+            // Si el modo es Auto y ya encontramos uno, saltar (para no llenar de puntos)
+            if (targetName === 'auto' && foundAuto) return;
+
+            // Verificar si la capa es visible (no rastrear capas ocultas)
+            const style = (appConfig.layers && appConfig.layers.perfil && appConfig.layers.perfil[nombre]);
+            if (style && !style.visible) return;
 
             if (p.data) {
-                // Buscar punto cercano
-                const pt = p.data.find(d => Math.abs(d[0] - pkActual) < 5); 
+                // Buscar punto cercano (umbral 2 metros)
+                const pt = p.data.find(d => Math.abs(d[0] - pkActual) < 2); 
                 if (pt) {
-                    ctx.fillStyle = "red";
+                    // Dibujar Punto
+                    ctx.fillStyle = isLight ? "#ff00dd" : "#fbff00";
                     ctx.beginPath(); ctx.arc(toX(pt[0]), toY(pt[1]), 6 / cam.zoom, 0, Math.PI * 2); ctx.fill();
                     
+                    // Texto Cota
                     ctx.fillStyle = colorTxtPto; 
-                    ctx.font = `bold ${(11 * escalaTxt) / cam.zoom}px Arial`;
+                    ctx.font = `bold ${(12 * escalaTxt) / cam.zoom}px Arial`;
                     ctx.textAlign = "left";
                     ctx.fillText(`Z: ${pt[1].toFixed(2)}`, toX(pt[0]) + 8 / cam.zoom, toY(pt[1]) - 8 / cam.zoom);
+                    
+                    if (targetName === 'auto') foundAuto = true; // Marcar que ya rastreamos uno
                 }
             }
         });

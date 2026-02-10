@@ -129,48 +129,48 @@
 
                     <div id="tab-planta" class="tab-content">
                         <div class="setting-group">
+                            <label>Etiquetado (Kilometraje)</label>
+                            <div class="setting-row">
+                                <span>Mostrar Textos</span>
+                                <input type="checkbox" id="chkPlantaLabels" checked>
+                            </div>
+                            <div class="setting-row">
+                                <span>Mostrar Ticks (Rayitas)</span> <input type="checkbox" id="chkPlantaTicks" checked>
+                            </div>
+                            <div class="setting-row">
+                                <span>Intervalo Texto (Mayores)</span>
+                                <input type="number" id="cfgPlantaMajor" value="1000" step="100" class="input-number">
+                            </div>
+                            <div class="setting-row">
+                                <span>Intervalo Ticks (Menores)</span>
+                                <input type="number" id="cfgPlantaMinor" value="100" step="50" class="input-number">
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
                             <label>Grilla y Coordenadas</label>
-                            
                             <div class="setting-row">
                                 <span>Intervalo General (m)</span>
                                 <input type="number" id="cfgGridPlanta" value="200" step="50" class="input-number">
                             </div>
-
                             <div class="setting-row">
                                 <span>Intervalo Miniatura (m)</span>
                                 <input type="number" id="cfgGridPlantaMulti" value="500" step="100" class="input-number">
                             </div>
-
                             <div class="setting-row">
                                 <span>Mostrar Grilla</span>
                                 <input type="checkbox" id="chkShowGridPlanta" checked>
                             </div>
                         </div>
+
+                        <div class="setting-group">
+                            <label>Gestor de Elementos</label>
+                            <div id="layers-planta-container">
+                                </div>
+                        </div>
                     </div>
 
                     <div id="tab-perfil" class="tab-content">
-                        <div class="setting-group">
-                            <label>Grilla Horizontal (PK)</label>
-                            <div class="setting-row">
-                                <span>Intervalo Vista Gral.</span>
-                                <input type="number" id="cfgGridPerfilK" value="500" step="50" class="input-number">
-                            </div>
-                            <div class="setting-row">
-                                <span>Intervalo Vista Mini</span> <input type="number" id="cfgGridPerfilKMulti" value="1000" step="100" class="input-number">
-                            </div>
-                        </div>
-
-                        <div class="setting-group">
-                            <label>Grilla Vertical (Cota)</label>
-                            <div class="setting-row">
-                                <span>Intervalo Vista Gral.</span>
-                                <input type="number" id="cfgGridPerfilZ" value="10" step="1" class="input-number">
-                            </div>
-                            <div class="setting-row">
-                                <span>Intervalo Vista Mini</span> <input type="number" id="cfgGridPerfilZMulti" value="50" step="5" class="input-number">
-                            </div>
-                        </div>
-
                         <div class="setting-group">
                             <label>Visualización</label>
                             <div class="setting-row">
@@ -182,14 +182,39 @@
                                     <option value="20">20x</option>
                                 </select>
                             </div>
+                            
                             <div class="setting-row">
-                                <span>Rastreo (Punto Rojo)</span>
+                                <span>Seguir a (Punto Rojo)</span>
                                 <select id="cfgTargetPerfil" class="input-select">
-                                    <option value="all">Seguir Todo</option>
-                                    <option value="rasante">Solo Rasante</option>
-                                    <option value="terreno">Solo Terreno</option>
-                                </select>
+                                    <option value="auto">Automático</option>
+                                    </select>
                             </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Grillas</label>
+                            <div class="setting-row">
+                                <span>Intervalo PK (Gral)</span>
+                                <input type="number" id="cfgGridPerfilK" value="500" step="50" class="input-number">
+                            </div>
+                            <div class="setting-row">
+                                <span>Intervalo PK (Mini)</span>
+                                <input type="number" id="cfgGridPerfilKMulti" value="1000" step="100" class="input-number">
+                            </div>
+                            <div class="setting-row">
+                                <span>Intervalo Cota (Gral)</span>
+                                <input type="number" id="cfgGridPerfilZ" value="10" step="1" class="input-number">
+                            </div>
+                            <div class="setting-row">
+                                <span>Intervalo Cota (Mini)</span>
+                                <input type="number" id="cfgGridPerfilZMulti" value="50" step="5" class="input-number">
+                            </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Gestor de Elementos</label>
+                            <div id="layers-perfil-container">
+                                </div>
                         </div>
                     </div>
 
@@ -204,6 +229,12 @@
                                 <span>Intervalo Elevación (Y)</span>
                                 <input type="number" id="cfgGridSeccionY" value="5" step="1" class="input-number">
                             </div>
+                        </div>
+
+                        <div class="setting-group">
+                            <label>Gestor de Elementos</label>
+                            <div id="layers-seccion-container">
+                                </div>
                         </div>
                     </div>
                 </main>

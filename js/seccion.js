@@ -1,20 +1,16 @@
-// js/seccion.js
-
 function dibujarSeccion(seccion) {
     const canvas = document.getElementById('visorCanvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // CONFIGURACIÓN DE ESTILOS UNIFICADA
+    // --- ESTILOS ---
     const isLight = appConfig.general.theme === 'light';
     const escalaTxt = appConfig.general.textScale || 1.0;
 
     const colorGrillaSec = isLight ? "#e0e0e0" : "#222";
     const colorGrillaEje = isLight ? "rgba(0,123,255,0.4)" : "rgba(0, 251, 255, 0.4)";
-    const colorTexto     = isLight ? "#666" : "#888"; // Unificado
+    const colorTexto     = isLight ? "#666" : "#888"; 
     const colorTextoEje  = isLight ? "#0056b3" : "#00fbff";
-    const colorTerreno   = "#8b4513";
-    const colorCorredor  = isLight ? "#007bff" : "#00fbff";
     const colorCursor    = isLight ? "#007bff" : "#00fbff";
     const colorCursorStroke = isLight ? "#fff" : "white";
 
@@ -22,9 +18,8 @@ function dibujarSeccion(seccion) {
     ctx.clearRect(0, 0, W, H);
     if (!seccion) return;
 
-    // 1. CÁLCULO DE LÍMITES
+    // 1. CÁLCULO DE LÍMITES Y ESCALAS
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    
     const escanear = (listas) => {
         if (!listas) return;
         listas.forEach(obj => {
@@ -36,104 +31,146 @@ function dibujarSeccion(seccion) {
             }
         });
     };
-    escanear(seccion.t);
-    escanear(seccion.c);
+    escanear(seccion.t); escanear(seccion.c);
 
     if (minY > maxY) { minY = 0; maxY = 10; minX = -10; maxX = 10; }
 
     const rangeX = (maxX - minX) * 1.4;
     const rangeY = (maxY - minY) * 1.4;
     const scale = Math.min(W / rangeX, H / rangeY);
-    
-    const centroX = (minX + maxX) / 2;
-    const centroY = (minY + maxY) / 2;
-
     const marginX = (W - (maxX - minX) * scale) / 2;
-    const marginY = (H - (maxY - minY) * scale) / 2; // Centrado vertical
+    const marginY = (H - (maxY - minY) * scale) / 2; 
 
-    // GUARDAR TRANSFORMACIÓN PARA HUD (CRÍTICO)
     appState.transform = { minX, minY, scale, mx: marginX, my: marginY };
 
     const toX = (v) => marginX + (v - minX) * scale;
     const toY = (v) => H - (marginY + (v - minY) * scale);
 
-    ctx.save();
     const cam = appState.cameras.seccion;
+
+    // ============================================================
+    // FASE 1: DIBUJO EN EL MUNDO (Líneas que se mueven con zoom)
+    // ============================================================
+    ctx.save();
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.zoom, cam.zoom);
 
-    // 2. GRILLA (4 LADOS)
-    let gX = appConfig.seccion.gridX || 5;
-    let gY = appConfig.seccion.gridY || 5;
-    if (gX <= 0) gX = 5; if (gY <= 0) gY = 5;
+    // Grilla
+    let gX = appConfig.seccion.gridX || 5; if (gX <= 0) gX = 5;
+    let gY = appConfig.seccion.gridY || 5; if (gY <= 0) gY = 5;
 
-    ctx.font = `${(11 * escalaTxt) / cam.zoom}px monospace`;
-    
-    // Posiciones fijas de los textos (Espejo)
-    const yAbajo = (H - cam.y - 15) / cam.zoom;
-    const yArriba = (15 - cam.y) / cam.zoom;
-    const xIzq = (10 - cam.x) / cam.zoom;
-    const xDerecha = (W - cam.x - 40) / cam.zoom; // 40px margen derecho
+    const centroX = (minX + maxX) / 2;
+    const centroY = (minY + maxY) / 2;
 
-    // Verticales (X)
+    // Calcular límites de grilla visibles (aprox) para no dibujar infinito
     const sX = Math.floor((centroX - (W/scale)/cam.zoom) / gX) * gX;
     const eX = sX + (W*2/scale)/cam.zoom;
-    
+    const sY = Math.floor((centroY - (H/scale)/cam.zoom) / gY) * gY;
+    const eY = sY + (H*2/scale)/cam.zoom;
+
+    // Dibujar Líneas Verticales
     for (let x = sX; x <= eX; x += gX) {
         let sx = toX(x);
         const esEje = Math.abs(x) < 0.01;
         ctx.strokeStyle = esEje ? colorGrillaEje : colorGrillaSec; 
         ctx.lineWidth = (esEje ? 2 : 1) / cam.zoom;
-        
         ctx.beginPath(); ctx.moveTo(sx, -50000); ctx.lineTo(sx, 50000); ctx.stroke();
-        
-        ctx.fillStyle = esEje ? colorTextoEje : colorTexto;
-        ctx.textAlign = "center";
-        ctx.fillText(x.toFixed(1), sx, yAbajo);  // Abajo
-        ctx.fillText(x.toFixed(1), sx, yArriba); // Arriba
     }
-
-    // Horizontales (Y)
-    const sY = Math.floor((centroY - (H/scale)/cam.zoom) / gY) * gY;
-    const eY = sY + (H*2/scale)/cam.zoom;
-
+    // Dibujar Líneas Horizontales
     for (let y = sY; y <= eY; y += gY) {
         let sy = toY(y);
         ctx.strokeStyle = colorGrillaSec; 
         ctx.lineWidth = 1 / cam.zoom;
-        
         ctx.beginPath(); ctx.moveTo(-50000, sy); ctx.lineTo(50000, sy); ctx.stroke();
-        
-        ctx.fillStyle = colorTexto;       
-        ctx.textAlign = "left";
-        ctx.fillText(y.toFixed(1), xIzq, sy); // Izquierda
-        
-        ctx.textAlign = "right";
-        ctx.fillText(y.toFixed(1), xDerecha, sy); // Derecha
     }
 
-    // 3. DIBUJAR CAPAS
-    if (seccion.t) {
-        ctx.strokeStyle = colorTerreno; ctx.lineWidth = 2 / cam.zoom;
-        seccion.t.forEach(obj => dibujarPolyFlat(ctx, Array.isArray(obj) ? obj : obj.p, toX, toY));
-    }
-    if (seccion.c) {
-        ctx.strokeStyle = colorCorredor; ctx.lineWidth = 1.5 / cam.zoom;
-        seccion.c.forEach(obj => dibujarPolyFlat(ctx, Array.isArray(obj) ? obj : obj.p, toX, toY));
+    // Dibujar Capas (Terreno, Corredor)
+    if (appConfig.layers && appConfig.layers.seccion) {
+        Object.values(appConfig.layers.seccion).forEach(layer => {
+            if (!layer.visible) return;
+            ctx.strokeStyle = layer.color;
+            ctx.lineWidth = layer.width / cam.zoom;
+            if (layer.type === 't' && seccion.t && seccion.t[layer.idx]) {
+                const d = seccion.t[layer.idx];
+                dibujarPolyFlat(ctx, Array.isArray(d) ? d : d.p, toX, toY);
+            } else if (layer.type === 'c' && seccion.c) {
+                seccion.c.forEach(obj => dibujarPolyFlat(ctx, Array.isArray(obj) ? obj : obj.p, toX, toY));
+            }
+        });
+    } else {
+        // Fallback
+        if (seccion.t) { ctx.strokeStyle = "#8b4513"; ctx.lineWidth = 2/cam.zoom; seccion.t.forEach(o => dibujarPolyFlat(ctx, Array.isArray(o)?o:o.p, toX, toY)); }
+        if (seccion.c) { ctx.strokeStyle = "#007bff"; ctx.lineWidth = 1.5/cam.zoom; seccion.c.forEach(o => dibujarPolyFlat(ctx, Array.isArray(o)?o:o.p, toX, toY)); }
     }
 
-    // 4. MIRA (CROSSHAIR)
-    if (appState.lastClick) {
-        const px = appState.lastClick.x; const py = appState.lastClick.y;
-        ctx.save();
-        ctx.shadowBlur = 10 / cam.zoom; ctx.shadowColor = colorCursor;
-        ctx.fillStyle = colorCursor; ctx.beginPath(); ctx.arc(px, py, 4 / cam.zoom, 0, Math.PI * 2); ctx.fill();
+    // Mira (Crosshair) - Puntos Mundo
+    if (appState.lastMarker) {
+        const px = toX(appState.lastMarker.x);
+        const py = toY(appState.lastMarker.y);
+        ctx.fillStyle = colorCursor; 
+        ctx.beginPath(); ctx.arc(px, py, 4 / cam.zoom, 0, Math.PI * 2); ctx.fill();
         ctx.strokeStyle = colorCursorStroke; ctx.lineWidth = 1.5 / cam.zoom;
         const s = 10 / cam.zoom;
         ctx.beginPath(); ctx.moveTo(px-s, py); ctx.lineTo(px+s, py); ctx.moveTo(px, py-s); ctx.lineTo(px, py+s); ctx.stroke();
-        ctx.restore();
     }
-    ctx.restore();
+
+    ctx.restore(); 
+    // ============================================================
+    // FIN FASE 1: Se cierra la matriz de transformación
+    // ============================================================
+
+
+    // ============================================================
+    // FASE 2: DIBUJO HUD (Textos fijos en bordes)
+    // ============================================================
+    
+    // CONFIGURACIÓN DE GAPS (MÁRGENES)
+    const gapX = 10; // Margen lateral (izquierda/derecha)
+    const gapY = 10; // Margen vertical (arriba/abajo)
+
+    ctx.font = `${11 * escalaTxt}px monospace`; 
+    
+    // Función auxiliar para proyectar coordenada Mundo -> Pantalla
+    const worldToScreenX = (valX) => (toX(valX) * cam.zoom) + cam.x;
+    const worldToScreenY = (valY) => (toY(valY) * cam.zoom) + cam.y;
+
+    // 1. Textos Verticales (Desfases X)
+    for (let x = sX; x <= eX; x += gX) {
+        const screenX = worldToScreenX(x);
+        
+        // Solo dibujamos si cae dentro de la pantalla (con un poco de margen)
+        if (screenX > -20 && screenX < W + 20) {
+            const esEje = Math.abs(x) < 0.01;
+            ctx.fillStyle = esEje ? colorTextoEje : colorTexto;
+            ctx.textAlign = "center";
+            
+            // Texto Abajo (H - gapY)
+            ctx.textBaseline = "bottom"; 
+            ctx.fillText(x.toFixed(1), screenX, H - gapY); 
+
+            // Texto Arriba (gapY)
+            ctx.textBaseline = "top"; 
+            ctx.fillText(x.toFixed(1), screenX, gapY); 
+        }
+    }
+
+    // 2. Textos Horizontales (Elevaciones Y)
+    for (let y = sY; y <= eY; y += gY) {
+        const screenY = worldToScreenY(y);
+        
+        if (screenY > -20 && screenY < H + 20) {
+            ctx.fillStyle = colorTexto;
+            ctx.textBaseline = "middle";
+
+            // Texto Izquierda (gapX)
+            ctx.textAlign = "left"; 
+            ctx.fillText(y.toFixed(1), gapX, screenY); 
+
+            // Texto Derecha (W - gapX)
+            ctx.textAlign = "right"; 
+            ctx.fillText(y.toFixed(1), W - gapX, screenY); 
+        }
+    }
 }
 
 function dibujarPolyFlat(ctx, arr, toX, toY) {
