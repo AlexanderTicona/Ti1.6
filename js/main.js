@@ -541,3 +541,203 @@ function applyTheme() {
     syncAllViews();
 }
 window.addEventListener('DOMContentLoaded', () => { applyTheme(); });
+
+
+// ============================================================
+// CAPTURA INTELIGENTE (SINGLE & MULTI)
+// ============================================================
+function capturaInteligente() {
+    const dashboard = document.getElementById('main-dashboard');
+    const layout = dashboard.className; 
+
+    // A. MODO MULTI-VISTA
+    if (layout === 'layout-multi') {
+        capturarMultiVista();
+    } 
+    // B. MODO SIMPLE (Detectar cuál está activo)
+    else {
+        let activeCanvas = '';
+        let activeName = '';
+        let activeTitle = '';
+
+        if (layout.includes('planta')) { 
+            activeCanvas = 'canvasPlanta'; 
+            activeName = 'Planta'; 
+            activeTitle = 'VISTA PLANTA';
+        }
+        else if (layout.includes('perfil')) { 
+            activeCanvas = 'canvasPerfil'; 
+            activeName = 'Perfil'; 
+            activeTitle = 'VISTA PERFIL LONGITUDINAL';
+        }
+        else { 
+            // Default: Sección
+            activeCanvas = 'visorCanvas'; 
+            activeName = 'Seccion'; 
+            activeTitle = 'VISTA SECCIÓN TRANSVERSAL';
+        }
+
+        // Llamamos a la función unificada con el título correcto
+        guardarImagenConEncabezado(activeCanvas, activeName, activeTitle);
+    }
+}
+
+// ============================================================
+// 2. GENERADOR DE IMAGEN ÚNICA (CON BARRA DE TÍTULO)
+// ============================================================
+function guardarImagenConEncabezado(idCanvas, nombreBase, tituloVista) {
+    const canvas = document.getElementById(idCanvas);
+    if (!canvas) return;
+
+    // Dimensiones: Alto original + 40px para la barra
+    const altoBarra = 40;
+    const width = canvas.width;
+    const height = canvas.height + altoBarra;
+
+    const masterCanvas = document.createElement('canvas');
+    masterCanvas.width = width;
+    masterCanvas.height = height;
+    const ctx = masterCanvas.getContext('2d');
+
+    // A. Pintar Fondo Base (Canvas + Barra)
+    const isLight = document.body.classList.contains('light-mode');
+    ctx.fillStyle = isLight ? '#ffffff' : '#0c0c0c'; // Fondo del contenido
+    ctx.fillRect(0, 0, width, height);
+
+    // B. Pintar Barra Superior
+    ctx.fillStyle = isLight ? "#e0e0e0" : "#1a1a1a"; // Color de la barra
+    ctx.fillRect(0, 0, width, altoBarra);
+
+    // C. Textos del Encabezado
+    const textoPK = getCurrentPKText();
+    const fecha = new Date().toLocaleString();
+
+    // 1. Título (Izquierda)
+    ctx.font = "bold 16px Arial";
+    ctx.fillStyle = isLight ? "#333" : "#fff";
+    ctx.textAlign = "left";
+    ctx.fillText(tituloVista, 20, 26);
+
+    // 2. PK (Centro)
+    ctx.font = "bold 20px monospace";
+    ctx.fillStyle = "#00fbff"; // Acento
+    if(isLight) ctx.fillStyle = "#0056b3";
+    ctx.textAlign = "center";
+    ctx.fillText(textoPK, width / 2, 27);
+
+    // 3. Marca y Fecha (Derecha)
+    ctx.font = "12px monospace";
+    ctx.fillStyle = isLight ? "#666" : "#888";
+    ctx.textAlign = "right";
+    ctx.fillText(`TiQAL - ${fecha}`, width - 20, 25);
+
+    // D. Pegar el Canvas Original (Debajo de la barra)
+    // drawImage(source, dx, dy) -> Lo bajamos 'altoBarra' píxeles
+    ctx.drawImage(canvas, 0, altoBarra);
+
+    // E. Descargar
+    descargarCanvas(masterCanvas, nombreBase);
+}
+
+// ============================================================
+// 3. CAPTURA MULTI-VISTA (ESTANDARIZADA)
+// ============================================================
+function capturarMultiVista() {
+    const dashboard = document.getElementById('main-dashboard');
+    const rectDash = dashboard.getBoundingClientRect();
+    
+    // Dimensiones: Alto del dashboard + 40px barra
+    const altoBarra = 40;
+    const width = rectDash.width;
+    const height = rectDash.height + altoBarra;
+
+    const masterCanvas = document.createElement('canvas');
+    masterCanvas.width = width;
+    masterCanvas.height = height;
+    const ctx = masterCanvas.getContext('2d');
+
+    const isLight = document.body.classList.contains('light-mode');
+
+    // A. Fondo
+    ctx.fillStyle = isLight ? '#f0f2f5' : '#000000';
+    ctx.fillRect(0, 0, width, height);
+
+    // B. Barra Superior
+    ctx.fillStyle = isLight ? "#e0e0e0" : "#1a1a1a";
+    ctx.fillRect(0, 0, width, altoBarra);
+
+    // C. Textos Encabezado
+    const textoPK = getCurrentPKText();
+    const fecha = new Date().toLocaleString();
+
+    ctx.font = "bold 16px Arial";
+    ctx.fillStyle = isLight ? "#333" : "#fff";
+    ctx.textAlign = "left";
+    ctx.fillText("REPORTE MULTI-VISTA TiQAL", 20, 26);
+
+    ctx.font = "bold 20px monospace";
+    ctx.fillStyle = "#00fbff"; 
+    if(isLight) ctx.fillStyle = "#0056b3";
+    ctx.textAlign = "center";
+    ctx.fillText(textoPK, width / 2, 27);
+
+    ctx.font = "12px monospace";
+    ctx.fillStyle = isLight ? "#666" : "#888";
+    ctx.textAlign = "right";
+    ctx.fillText(fecha, width - 20, 25);
+
+    // D. Pegar Paneles (Compensando la barra en Y)
+    const lienzos = [
+        { id: 'canvasPlanta' }, { id: 'canvasPerfil' }, { id: 'visorCanvas' }
+    ];
+
+    lienzos.forEach(item => {
+        const c = document.getElementById(item.id);
+        if (c) {
+            const rectC = c.getBoundingClientRect();
+            // Posición relativa al dashboard
+            const x = rectC.left - rectDash.left;
+            // IMPORTANTE: Sumamos altoBarra a la posición Y
+            const y = (rectC.top - rectDash.top) + altoBarra; 
+            
+            ctx.drawImage(c, x, y, rectC.width, rectC.height);
+            
+            ctx.strokeStyle = isLight ? '#ccc' : '#333';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, rectC.width, rectC.height);
+        }
+    });
+
+    descargarCanvas(masterCanvas, "Dashboard_Multi");
+}
+
+// ============================================================
+// UTILIDADES 
+// ============================================================
+function getCurrentPKText() {
+    if (!appState.secciones || appState.secciones.length === 0) return "PK: --+---";
+    const sec = appState.secciones[appState.currentIdx];
+    const val = sec.k || sec.km || 0;
+    const k = Math.floor(val / 1000);
+    const m = Math.abs(val % 1000).toFixed(0).padStart(3, '0');
+    return `PK: ${k}+${m}`;
+}
+
+function descargarCanvas(canvas, nombreBase) {
+    try {
+        let pkStr = "General";
+        if (appState.secciones && appState.secciones.length > 0) {
+             const val = appState.secciones[appState.currentIdx].k;
+             pkStr = Math.floor(val).toString();
+        }
+        const link = document.createElement('a');
+        link.download = `${nombreBase}_PK${pkStr}_${Date.now()}.png`;
+        link.href = canvas.toDataURL("image/png");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (err) {
+        console.error("Error al exportar:", err);
+        alert("Error al generar imagen.");
+    }
+}

@@ -178,8 +178,42 @@ input[type=range]::-webkit-slider-thumb {
 .layout-seccion #panel-planta, .layout-seccion #panel-perfil { display: none; }
 .layout-planta #panel-seccion, .layout-planta #panel-perfil { display: none; }
 .layout-perfil #panel-planta, .layout-perfil #panel-seccion { display: none; }
-.layout-multi { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 2fr; }
-.layout-multi #panel-seccion { grid-column: span 2; }
+
+/* ==========================================================================
+   LAYOUT MULTIVISTA (Matriz 2x2)
+   ========================================================================== */
+
+.layout-multi {
+    display: grid;
+    /* Definimos la matriz de 2x2 exacta */
+    grid-template-columns: 1fr 1fr; /* 50% Ancho | 50% Ancho */
+    grid-template-rows: 1fr 1fr;    /* 50% Alto  | 50% Alto */
+    
+    gap: 8px;       /* Espacio entre ventanas */
+    padding: 10px;
+    height: 100%;
+}
+
+/* 1. PLANTA: Arriba a la Izquierda (Fila 1, Columna 1) */
+.layout-multi #panel-planta {
+    display: flex;        /* Forzamos que se muestre */
+    grid-column: 1;
+    grid-row: 1;
+}
+
+/* 2. PERFIL: Abajo a la Izquierda (Fila 2, Columna 1) */
+.layout-multi #panel-perfil {
+    display: flex;        /* Forzamos que se muestre */
+    grid-column: 1;
+    grid-row: 2;
+}
+
+/* 3. SECCIÓN: Toda la Derecha (Columna 2, Ocupa las 2 Filas) */
+.layout-multi #panel-seccion {
+    display: flex;        /* Forzamos que se muestre */
+    grid-column: 2;
+    grid-row: 1 / span 2; /* Empieza en la fila 1 y estírate 2 espacios */
+}
 
 /* ==========================================================================
    7. PANEL DE AJUSTES INTEGRADO (FULL DASHBOARD)

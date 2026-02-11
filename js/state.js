@@ -36,7 +36,7 @@ const appConfig = {
         gridIntervalMulti: 500, 
         showGrid: true,
         ticksMajor: 1000,        // <--- Cada cuánto sale el texto del PK
-        ticksMinor: 100,         // <--- Cada cuánto salen las rayitas
+        ticksMinor: 100,         // <--- Cada cuánto salen El estacado
         showLabels: true,
         showTicks: true
     },

@@ -7,14 +7,13 @@ function dibujarPlanta() {
     const isLight = appConfig.general.theme === 'light';
     const escalaTxt = appConfig.general.textScale || 1.0;
     
-    // Colores Grilla (Estilo Aprobado)
+    // Colores
     const colorGrilla = isLight ? "#e0e0e0" : "#222";       
     const colorTexto  = isLight ? "#666" : "#888";        
     const colorPunto  = isLight ? "#ff00dd" : "#fbff00" 
     const colorTxtPK  = isLight ? "#000000" : "#ffffff"; 
 
-    // Configuración de Ticks (Desde Ajustes)
-    // Si no existen (primera carga), usamos valores por defecto
+    // Configuración de Ticks
     const verEtiquetas = appConfig.planta.showLabels !== false;
     const intMajor = appConfig.planta.ticksMajor || 1000;
     const intMinor = appConfig.planta.ticksMinor || 100;
@@ -41,71 +40,71 @@ function dibujarPlanta() {
     const toX = (e) => (W / 2) + (e - centroE) * scale;
     const toY = (n) => (H / 2) - (n - centroN) * scale;
 
-    ctx.save();
     const cam = appState.cameras.planta;
+
+    // ============================================================
+    // FASE 1: DIBUJO EN EL MUNDO (Líneas, Eje, Ticks)
+    // ============================================================
+    ctx.save();
     ctx.translate(cam.x, cam.y);
     ctx.scale(cam.zoom, cam.zoom);
 
-    // 3. GRILLA UNIFORME (4 LADOS) - TU CÓDIGO APROBADO
+    // --- A. GRILLA (Solo Líneas) ---
     const dashboard = document.getElementById('main-dashboard');
     const esModoMini = dashboard && dashboard.classList.contains('layout-multi');
     let gSize = esModoMini ? (appConfig.planta.gridIntervalMulti || 500) : (appConfig.planta.gridInterval || 200);
     if (gSize <= 0) gSize = 100;
 
+    // Calculamos límites visibles para optimizar bucles
+    // (Invertimos la pantalla para saber qué coordenadas E/N estamos viendo)
+    const viewLeft = -cam.x / cam.zoom;
+    const viewTop = -cam.y / cam.zoom;
+    const viewRight = (W - cam.x) / cam.zoom;
+    const viewBottom = (H - cam.y) / cam.zoom;
+    
+    // Convertimos pixels de pantalla inversa a coordenadas E/N (Aprox)
+    // Nota: Es un cálculo aproximado para el "culling" (no dibujar infinito)
+    // E = centroE + (x_world - W/2) / scale
+    const startE_aprox = centroE + (viewLeft - W/2) / scale;
+    const endE_aprox = centroE + (viewRight - W/2) / scale;
+    const startN_aprox = centroN - (viewBottom - H/2) / scale; // Y invertido
+    const endN_aprox = centroN - (viewTop - H/2) / scale;
+
+    const startE = Math.floor(startE_aprox / gSize) * gSize - gSize;
+    const endE = Math.ceil(endE_aprox / gSize) * gSize + gSize;
+    const startN = Math.floor(startN_aprox / gSize) * gSize - gSize;
+    const endN = Math.ceil(endN_aprox / gSize) * gSize + gSize;
+
     if (appConfig.planta.showGrid !== false) {
         ctx.lineWidth = 1 / cam.zoom;
-        ctx.font = `${(11 * escalaTxt) / cam.zoom}px monospace`;
-        
-        const yAbajo = (H - cam.y - 15) / cam.zoom;
-        const yArriba = (15 - cam.y) / cam.zoom;
-        const xIzq = (10 - cam.x) / cam.zoom;
-        const xDerecha = (W - cam.x - 50) / cam.zoom;
-
-        // Grilla Vertical (Este)
-        const startX = Math.floor((centroE - (W/scale)/cam.zoom) / gSize) * gSize;
-        const endX = startX + (W*2/scale)/cam.zoom;
-        
         ctx.strokeStyle = colorGrilla;
         
-        for (let e = startX; e <= endX; e += gSize) {
+        // Verticales (Este)
+        for (let e = startE; e <= endE; e += gSize) {
             let x = toX(e);
             ctx.beginPath(); ctx.moveTo(x, -50000); ctx.lineTo(x, 50000); ctx.stroke();
-            
-            ctx.fillStyle = colorTexto;
-            ctx.textAlign = "center";
-            ctx.fillText(e.toFixed(0), x, yAbajo);
-            ctx.fillText(e.toFixed(0), x, yArriba);
+            // ¡YA NO DIBUJAMOS TEXTO AQUÍ!
         }
         
-        // Grilla Horizontal (Norte)
-        const startY = Math.floor((centroN - (H/scale)/cam.zoom) / gSize) * gSize;
-        const endY = startY + (H*2/scale)/cam.zoom;
-        
-        for (let n = startY; n <= endY; n += gSize) {
+        // Horizontales (Norte)
+        for (let n = startN; n <= endN; n += gSize) {
             let y = toY(n);
             ctx.beginPath(); ctx.moveTo(-50000, y); ctx.lineTo(50000, y); ctx.stroke();
-            
-            ctx.fillStyle = colorTexto;
-            ctx.textAlign = "left";
-            ctx.fillText(n.toFixed(0), xIzq, y);
-            ctx.textAlign = "right";
-            ctx.fillText(n.toFixed(0), xDerecha, y);
+            // ¡YA NO DIBUJAMOS TEXTO AQUÍ!
         }
     }
 
-    // 4. ALINEAMIENTO (Con Gestor de Capas y Ticks)
-    // Buscamos la capa 'Eje' en la configuración. Si no existe, usamos defaults.
+    // --- B. ALINEAMIENTO (Eje y Ticks) ---
+    // (Este bloque se mantiene IGUAL porque los ticks SÍ deben moverse con el zoom)
     const layerEje = (appConfig.layers && appConfig.layers.planta && appConfig.layers.planta['Eje']) 
-                     ? appConfig.layers.planta['Eje'] 
-                     : { visible: true, color: isLight ? "#0056b3" : "#00fbff", width: 2 };
+                      ? appConfig.layers.planta['Eje'] 
+                      : { visible: true, color: isLight ? "#0056b3" : "#00fbff", width: 2 };
 
     if (layerEje.visible) {
-        // A. DIBUJAR LÍNEA CONTINUA
         ctx.beginPath();
         ctx.strokeStyle = layerEje.color; 
         ctx.lineWidth = layerEje.width / cam.zoom;
         
-        // Detectar si tenemos K: [k, x, y] (length 3)
         const esArray3 = Array.isArray(trazo[0]) && trazo[0].length === 3;
         const esArray2 = Array.isArray(trazo[0]) && trazo[0].length === 2;
         
@@ -120,32 +119,23 @@ function dibujarPlanta() {
         });
         ctx.stroke();
 
-        // B. DIBUJAR TICKS (Solo si tenemos dato K)
+        // Ticks sobre el eje (Estos se quedan en el Mundo, FASE 1)
         if (esArray3) {
             ctx.fillStyle = isLight ? "#000" : "#fff";
             ctx.font = `${(10 * escalaTxt) / cam.zoom}px Arial`;
             const sizeMajor = 8 / cam.zoom;
             const sizeMinor = 4 / cam.zoom;
-            
-            // NUEVO: Leemos si el usuario quiere ver las rayitas
             const verTicks = appConfig.planta.showTicks !== false; 
 
             for (let i = 0; i < trazo.length - 1; i++) {
-                const p1 = trazo[i];
-                const p2 = trazo[i+1];
-                const k1 = p1[0];
-                const k2 = p2[0];
-
+                const p1 = trazo[i]; const p2 = trazo[i+1];
+                const k1 = p1[0]; const k2 = p2[0];
                 if (k2 <= k1) continue;
 
-                // Ticks Mayores
                 const nextMajor = Math.ceil(k1 / intMajor) * intMajor;
                 if (nextMajor <= k2) {
-                    // Pasamos 'verTicks' (true/false) a la función
                     drawTick(ctx, p1, p2, nextMajor, sizeMajor, true, verEtiquetas, verTicks, toX, toY, cam, isLight);
                 }
-
-                // Ticks Menores
                 let kScan = Math.ceil(k1 / intMinor) * intMinor;
                 while (kScan <= k2) {
                     if (kScan % intMajor !== 0) {
@@ -157,26 +147,17 @@ function dibujarPlanta() {
         }
     }
 
-    // 5. PUNTO ROJO DE RASTREO (Igual que antes)
+    // --- C. PUNTO ROJO ---
     if (appState.secciones && appState.secciones.length > 0) {
         const secActual = appState.secciones[appState.currentIdx];
         const mActual = secActual.k || secActual.km || 0;
         let pRef = null;
-
         const esArray3 = Array.isArray(trazo[0]) && trazo[0].length === 3;
 
         if (esArray3) {
-            // Buscamos el punto más cercano en K
-            pRef = trazo.reduce((prev, curr) => {
-                return (Math.abs(curr[0] - mActual) < Math.abs(prev[0] - mActual) ? curr : prev);
-            });
-            // Validación de distancia (por si hay saltos)
-            if (pRef && Math.abs(pRef[0] - mActual) < 50) {
-                pRef = { x: pRef[1], y: pRef[2] };
-            } else { pRef = null; }
+            pRef = trazo.reduce((prev, curr) => (Math.abs(curr[0] - mActual) < Math.abs(prev[0] - mActual) ? curr : prev));
+            if (pRef && Math.abs(pRef[0] - mActual) < 50) pRef = { x: pRef[1], y: pRef[2] }; else pRef = null;
         }
-
-        // Fallback a Hitos si no encontramos por K
         if (!pRef && hitos.length > 0) {
             const hito = hitos.find(h => Math.abs(h.k - mActual) < 2);
             if (hito) pRef = { x: hito.x, y: hito.y };
@@ -186,13 +167,78 @@ function dibujarPlanta() {
             ctx.fillStyle = colorPunto;
             ctx.beginPath(); ctx.arc(toX(pRef.x), toY(pRef.y), 6 / cam.zoom, 0, Math.PI * 2); ctx.fill();
             
+            // Etiqueta flotante del PK actual
             ctx.fillStyle = colorTxtPK;
             ctx.font = `bold ${(12 * escalaTxt) / cam.zoom}px Arial`;
             ctx.textAlign = "left";
-            ctx.fillText(`PK ${mActual.toFixed(2)}`, toX(pRef.x) + 10 / cam.zoom, toY(pRef.y));
+            
+            // --- FORMATEO 0+000 (Sin decimales) ---
+            const kE = Math.floor(mActual / 1000);
+            const kM = Math.abs(mActual % 1000).toFixed(0).padStart(3, '0');
+            
+            ctx.fillText(`PK ${kE}+${kM}`, toX(pRef.x) + 10 / cam.zoom, toY(pRef.y));
         }
     }
-    ctx.restore();
+
+    ctx.restore(); 
+    // ============================================================
+    // FIN FASE 1
+    // ============================================================
+
+
+    // ============================================================
+    // FASE 2: DIBUJO HUD (Textos de Coordenadas Fijos)
+    // ============================================================
+    if (appConfig.planta.showGrid !== false) {
+        
+        // Gaps Seguros (Igual que en Sección)
+        const gapX = 10;
+        const gapTop = 10;
+        const gapBottom = 10; // Protegido para móviles
+
+        ctx.font = `${11 * escalaTxt}px monospace`;
+        ctx.fillStyle = colorTexto;
+
+        // Función auxiliar: Mundo -> Pantalla
+        const worldToScreenX = (eVal) => (toX(eVal) * cam.zoom) + cam.x;
+        const worldToScreenY = (nVal) => (toY(nVal) * cam.zoom) + cam.y;
+
+        // 1. Coordenadas ESTE (Textos arriba/abajo)
+        // Usamos los mismos bucles calculados antes (startE a endE)
+        for (let e = startE; e <= endE; e += gSize) {
+            const sx = worldToScreenX(e);
+            
+            // Solo si está visible en pantalla
+            if (sx > -20 && sx < W + 20) {
+                ctx.textAlign = "center";
+                
+                // Texto Abajo
+                ctx.textBaseline = "bottom";
+                ctx.fillText(e.toFixed(0), sx, H - gapBottom);
+
+                // Texto Arriba
+                ctx.textBaseline = "top";
+                ctx.fillText(e.toFixed(0), sx, gapTop);
+            }
+        }
+
+        // 2. Coordenadas NORTE (Textos izquierda/derecha)
+        for (let n = startN; n <= endN; n += gSize) {
+            const sy = worldToScreenY(n);
+            
+            if (sy > -20 && sy < H + 20) {
+                ctx.textBaseline = "middle";
+                
+                // Texto Izquierda
+                ctx.textAlign = "left";
+                ctx.fillText(n.toFixed(0), gapX, sy);
+
+                // Texto Derecha
+                ctx.textAlign = "right";
+                ctx.fillText(n.toFixed(0), W - gapX, sy);
+            }
+        }
+    }
 }
 
 // Función Auxiliar Actualizada (Recibe showLine)
@@ -231,14 +277,24 @@ function drawTick(ctx, p1, p2, targetK, size, isMajor, showLabel, showLine, toX,
 
     // 6. Dibujar Etiqueta
     if (isMajor && showLabel) {
+        // --- FORMATEO 0+000 ---
+        const kEntero = Math.floor(targetK / 1000);
+        const kMetros = Math.abs(targetK % 1000).toFixed(0).padStart(3, '0');
+        const textoPK = `${kEntero}+${kMetros}`;
+
         ctx.fillStyle = isLight ? "#000" : "#fff";
         ctx.save();
         ctx.translate(sx + px * (size + 5/cam.zoom), sy + py * (size + 5/cam.zoom));
+        
         let angle = Math.atan2(dy, dx) - Math.PI/2; 
         if (angle > Math.PI/2 || angle < -Math.PI/2) angle += Math.PI;
+        
         ctx.rotate(angle);
         ctx.textAlign = "center";
-        ctx.fillText(targetK.toFixed(0), 0, 0);
+        
+        // Dibujamos el texto formateado
+        ctx.fillText(textoPK, 0, 0);
+        
         ctx.restore();
     }
 }
