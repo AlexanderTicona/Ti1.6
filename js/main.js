@@ -544,53 +544,48 @@ window.addEventListener('DOMContentLoaded', () => { applyTheme(); });
 
 
 // ============================================================
-// CAPTURA INTELIGENTE (SINGLE & MULTI)
+// SISTEMA DE CAPTURA DE IMAGEN (REPORTES HD) - FINAL
 // ============================================================
+
+// 1. CEREBRO: DECIDE QUÉ CAPTURAR Y PONE EL TÍTULO CORRECTO
 function capturaInteligente() {
     const dashboard = document.getElementById('main-dashboard');
     const layout = dashboard.className; 
 
-    // A. MODO MULTI-VISTA
     if (layout === 'layout-multi') {
         capturarMultiVista();
-    } 
-    // B. MODO SIMPLE (Detectar cuál está activo)
-    else {
+    } else {
         let activeCanvas = '';
         let activeName = '';
         let activeTitle = '';
 
+        // TÍTULOS ELEGANTES (Title Case)
         if (layout.includes('planta')) { 
             activeCanvas = 'canvasPlanta'; 
             activeName = 'Planta'; 
-            activeTitle = 'VISTA PLANTA';
-        }
-        else if (layout.includes('perfil')) { 
+            activeTitle = 'Vista Planta'; 
+        } else if (layout.includes('perfil')) { 
             activeCanvas = 'canvasPerfil'; 
             activeName = 'Perfil'; 
-            activeTitle = 'VISTA PERFIL LONGITUDINAL';
-        }
-        else { 
-            // Default: Sección
+            activeTitle = 'Vista Perfil Longitudinal';
+        } else { 
             activeCanvas = 'visorCanvas'; 
             activeName = 'Seccion'; 
-            activeTitle = 'VISTA SECCIÓN TRANSVERSAL';
+            activeTitle = 'Vista Sección Transversal';
         }
-
-        // Llamamos a la función unificada con el título correcto
+        
         guardarImagenConEncabezado(activeCanvas, activeName, activeTitle);
     }
 }
 
-// ============================================================
-// 2. GENERADOR DE IMAGEN ÚNICA (CON BARRA DE TÍTULO)
-// ============================================================
+// 2. IMAGEN ÚNICA (ESCALADA HD)
 function guardarImagenConEncabezado(idCanvas, nombreBase, tituloVista) {
     const canvas = document.getElementById(idCanvas);
     if (!canvas) return;
 
-    // Dimensiones: Alto original + 40px para la barra
-    const altoBarra = 40;
+    // Calcular Escala Real (HD)
+    const scale = canvas.width / canvas.clientWidth; 
+    const altoBarra = 40 * scale;
     const width = canvas.width;
     const height = canvas.height + altoBarra;
 
@@ -599,57 +594,68 @@ function guardarImagenConEncabezado(idCanvas, nombreBase, tituloVista) {
     masterCanvas.height = height;
     const ctx = masterCanvas.getContext('2d');
 
-    // A. Pintar Fondo Base (Canvas + Barra)
+    // Fondos
     const isLight = document.body.classList.contains('light-mode');
-    ctx.fillStyle = isLight ? '#ffffff' : '#0c0c0c'; // Fondo del contenido
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = isLight ? '#ffffff' : '#0c0c0c'; 
+    ctx.fillRect(0, 0, width, height); // Fondo contenido
+    ctx.fillStyle = isLight ? "#e0e0e0" : "#1a1a1a"; 
+    ctx.fillRect(0, 0, width, altoBarra); // Fondo barra
 
-    // B. Pintar Barra Superior
-    ctx.fillStyle = isLight ? "#e0e0e0" : "#1a1a1a"; // Color de la barra
-    ctx.fillRect(0, 0, width, altoBarra);
-
-    // C. Textos del Encabezado
+    // --- TEXTOS ---
     const textoPK = getCurrentPKText();
-    const fecha = new Date().toLocaleString();
+    // Solo Fecha (sin hora)
+    const soloFecha = new Date().toLocaleDateString(); 
 
-    // 1. Título (Izquierda)
-    ctx.font = "bold 16px Arial";
+    // A. Título (Izquierda)
+    ctx.font = `bold ${16 * scale}px Arial`;
     ctx.fillStyle = isLight ? "#333" : "#fff";
     ctx.textAlign = "left";
-    ctx.fillText(tituloVista, 20, 26);
+    ctx.fillText(tituloVista, 20 * scale, 26 * scale);
 
-    // 2. PK (Centro)
-    ctx.font = "bold 20px monospace";
-    ctx.fillStyle = "#00fbff"; // Acento
-    if(isLight) ctx.fillStyle = "#0056b3";
+    // B. PK (Centro - Color Cian/Azul)
+    ctx.font = `bold ${20 * scale}px monospace`;
+    ctx.fillStyle = isLight ? "#0056b3" : "#00fbff";
     ctx.textAlign = "center";
-    ctx.fillText(textoPK, width / 2, 27);
+    ctx.fillText(textoPK, width / 2, 27 * scale);
 
-    // 3. Marca y Fecha (Derecha)
-    ctx.font = "12px monospace";
-    ctx.fillStyle = isLight ? "#666" : "#888";
+    // C. Marca TiQAL (Derecha - Fuerte)
     ctx.textAlign = "right";
-    ctx.fillText(`TiQAL - ${fecha}`, width - 20, 25);
+    ctx.font = `bold ${14 * scale}px Arial`;
+    ctx.fillStyle = isLight ? "#333" : "#fff";
+    // Lo dibujamos un poco antes del borde para dejar espacio a la fecha o viceversa
+    // Estrategia: Ponemos TiQAL arriba y fecha pequeña al lado, o TiQAL seguido de fecha tenue.
+    // Haremos: "TiQAL" (fuerte)  "13/02/2026" (tenue)
+    
+    // Posición base derecha
+    const xRight = width - (20 * scale);
+    
+    // 1. Dibujar Fecha (Tenue)
+    ctx.font = `${11 * scale}px monospace`;
+    ctx.fillStyle = isLight ? "#888" : "#666"; // Gris tenue
+    ctx.fillText(soloFecha, xRight, 26 * scale);
+    
+    // Medimos cuánto ocupa la fecha para poner TiQAL a su izquierda
+    const anchoFecha = ctx.measureText(soloFecha).width;
+    
+    // 2. Dibujar TiQAL (Fuerte)
+    ctx.font = `bold ${14 * scale}px Arial`;
+    ctx.fillStyle = isLight ? "#333" : "#fff";
+    ctx.fillText("TiQAL  ", xRight - anchoFecha - (10 * scale), 26 * scale);
 
-    // D. Pegar el Canvas Original (Debajo de la barra)
-    // drawImage(source, dx, dy) -> Lo bajamos 'altoBarra' píxeles
+    // Pegar Canvas
     ctx.drawImage(canvas, 0, altoBarra);
-
-    // E. Descargar
     descargarCanvas(masterCanvas, nombreBase);
 }
 
-// ============================================================
-// 3. CAPTURA MULTI-VISTA (ESTANDARIZADA)
-// ============================================================
+// 3. MULTI-VISTA (ESCALADA HD)
 function capturarMultiVista() {
     const dashboard = document.getElementById('main-dashboard');
     const rectDash = dashboard.getBoundingClientRect();
-    
-    // Dimensiones: Alto del dashboard + 40px barra
-    const altoBarra = 40;
-    const width = rectDash.width;
-    const height = rectDash.height + altoBarra;
+    const dpr = window.devicePixelRatio || 1;
+
+    const altoBarra = 40 * dpr;
+    const width = rectDash.width * dpr;
+    const height = (rectDash.height * dpr) + altoBarra;
 
     const masterCanvas = document.createElement('canvas');
     masterCanvas.width = width;
@@ -658,35 +664,45 @@ function capturarMultiVista() {
 
     const isLight = document.body.classList.contains('light-mode');
 
-    // A. Fondo
+    // Fondos
     ctx.fillStyle = isLight ? '#f0f2f5' : '#000000';
     ctx.fillRect(0, 0, width, height);
-
-    // B. Barra Superior
     ctx.fillStyle = isLight ? "#e0e0e0" : "#1a1a1a";
     ctx.fillRect(0, 0, width, altoBarra);
 
-    // C. Textos Encabezado
+    // --- TEXTOS ---
     const textoPK = getCurrentPKText();
-    const fecha = new Date().toLocaleString();
+    const soloFecha = new Date().toLocaleDateString();
 
-    ctx.font = "bold 16px Arial";
+    // A. Título "Multi-Vista"
+    ctx.font = `bold ${16 * dpr}px Arial`;
     ctx.fillStyle = isLight ? "#333" : "#fff";
     ctx.textAlign = "left";
-    ctx.fillText("REPORTE MULTI-VISTA TiQAL", 20, 26);
+    ctx.fillText("Multi-Vista", 20 * dpr, 26 * dpr);
 
-    ctx.font = "bold 20px monospace";
-    ctx.fillStyle = "#00fbff"; 
-    if(isLight) ctx.fillStyle = "#0056b3";
+    // B. PK
+    ctx.font = `bold ${20 * dpr}px monospace`;
+    ctx.fillStyle = isLight ? "#0056b3" : "#00fbff";
     ctx.textAlign = "center";
-    ctx.fillText(textoPK, width / 2, 27);
+    ctx.fillText(textoPK, width / 2, 27 * dpr);
 
-    ctx.font = "12px monospace";
-    ctx.fillStyle = isLight ? "#666" : "#888";
+    // C. Marca y Fecha (Misma lógica que arriba)
     ctx.textAlign = "right";
-    ctx.fillText(fecha, width - 20, 25);
+    const xRight = width - (20 * dpr);
 
-    // D. Pegar Paneles (Compensando la barra en Y)
+    // Fecha Tenue
+    ctx.font = `${11 * dpr}px monospace`;
+    ctx.fillStyle = isLight ? "#888" : "#666"; 
+    ctx.fillText(soloFecha, xRight, 26 * dpr);
+    
+    const anchoFecha = ctx.measureText(soloFecha).width;
+
+    // Marca TiQAL
+    ctx.font = `bold ${14 * dpr}px Arial`;
+    ctx.fillStyle = isLight ? "#333" : "#fff";
+    ctx.fillText("TiQAL  ", xRight - anchoFecha - (10 * dpr), 26 * dpr);
+
+    // Pegar Paneles
     const lienzos = [
         { id: 'canvasPlanta' }, { id: 'canvasPerfil' }, { id: 'visorCanvas' }
     ];
@@ -695,16 +711,16 @@ function capturarMultiVista() {
         const c = document.getElementById(item.id);
         if (c) {
             const rectC = c.getBoundingClientRect();
-            // Posición relativa al dashboard
-            const x = rectC.left - rectDash.left;
-            // IMPORTANTE: Sumamos altoBarra a la posición Y
-            const y = (rectC.top - rectDash.top) + altoBarra; 
+            const x = (rectC.left - rectDash.left) * dpr;
+            const y = ((rectC.top - rectDash.top) * dpr) + altoBarra;
+            const w = rectC.width * dpr;
+            const h = rectC.height * dpr;
             
-            ctx.drawImage(c, x, y, rectC.width, rectC.height);
+            ctx.drawImage(c, 0, 0, c.width, c.height, x, y, w, h);
             
             ctx.strokeStyle = isLight ? '#ccc' : '#333';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x, y, rectC.width, rectC.height);
+            ctx.lineWidth = 2 * dpr;
+            ctx.strokeRect(x, y, w, h);
         }
     });
 
@@ -712,7 +728,7 @@ function capturarMultiVista() {
 }
 
 // ============================================================
-// UTILIDADES 
+// UTILIDADES COMPARTIDAS
 // ============================================================
 function getCurrentPKText() {
     if (!appState.secciones || appState.secciones.length === 0) return "PK: --+---";
@@ -725,17 +741,36 @@ function getCurrentPKText() {
 
 function descargarCanvas(canvas, nombreBase) {
     try {
+        // 1. Obtener PK (Solo parte entera)
         let pkStr = "General";
         if (appState.secciones && appState.secciones.length > 0) {
              const val = appState.secciones[appState.currentIdx].k;
              pkStr = Math.floor(val).toString();
         }
+
+        // 2. Generar Fecha y Hora compacta (YYYYMMDD_HHMMSS)
+        const now = new Date();
+        const anio = now.getFullYear();
+        const mes = String(now.getMonth() + 1).padStart(2, '0');
+        const dia = String(now.getDate()).padStart(2, '0');
+        const hora = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const seg = String(now.getSeconds()).padStart(2, '0');
+
+        // Formato compacto: 20260213_114605
+        const fechaHora = `${anio}${mes}${dia}_${hora}${min}${seg}`;
+
+        // 3. Construir Nombre Final
+        const nombreArchivo = `Ti_${nombreBase}_PK${pkStr}_${fechaHora}.png`;
+
+        // 4. Descargar
         const link = document.createElement('a');
-        link.download = `${nombreBase}_PK${pkStr}_${Date.now()}.png`;
+        link.download = nombreArchivo;
         link.href = canvas.toDataURL("image/png");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+
     } catch (err) {
         console.error("Error al exportar:", err);
         alert("Error al generar imagen.");
