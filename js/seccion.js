@@ -9,9 +9,9 @@ function dibujarSeccion(seccion) {
 
     const colorGrillaSec = isLight ? "#e0e0e0" : "#222";
     const colorGrillaEje = isLight ? "rgba(0,123,255,0.4)" : "rgba(0, 251, 255, 0.4)";
-    const colorTexto     = isLight ? "#666" : "#888"; 
-    const colorTextoEje  = isLight ? "#0056b3" : "#00fbff";
-    const colorCursor    = isLight ? "#007bff" : "#00fbff";
+    const colorTexto = isLight ? "#666" : "#888";
+    const colorTextoEje = isLight ? "#0056b3" : "#00fbff";
+    const colorCursor = isLight ? "#007bff" : "#00fbff";
     const colorCursorStroke = isLight ? "#fff" : "white";
 
     const W = canvas.width, H = canvas.height;
@@ -25,7 +25,7 @@ function dibujarSeccion(seccion) {
         listas.forEach(obj => {
             const arr = Array.isArray(obj) ? obj : (obj.p || []);
             for (let i = 0; i < arr.length; i += 2) {
-                const x = arr[i], y = arr[i+1];
+                const x = arr[i], y = arr[i + 1];
                 if (x < minX) minX = x; if (x > maxX) maxX = x;
                 if (y < minY) minY = y; if (y > maxY) maxY = y;
             }
@@ -39,7 +39,7 @@ function dibujarSeccion(seccion) {
     const rangeY = (maxY - minY) * 1.4;
     const scale = Math.min(W / rangeX, H / rangeY);
     const marginX = (W - (maxX - minX) * scale) / 2;
-    const marginY = (H - (maxY - minY) * scale) / 2; 
+    const marginY = (H - (maxY - minY) * scale) / 2;
 
     appState.transform = { minX, minY, scale, mx: marginX, my: marginY };
 
@@ -63,23 +63,23 @@ function dibujarSeccion(seccion) {
     const centroY = (minY + maxY) / 2;
 
     // Calcular límites de grilla visibles (aprox) para no dibujar infinito
-    const sX = Math.floor((centroX - (W/scale)/cam.zoom) / gX) * gX;
-    const eX = sX + (W*2/scale)/cam.zoom;
-    const sY = Math.floor((centroY - (H/scale)/cam.zoom) / gY) * gY;
-    const eY = sY + (H*2/scale)/cam.zoom;
+    const sX = Math.floor((centroX - (W / scale) / cam.zoom) / gX) * gX;
+    const eX = sX + (W * 2 / scale) / cam.zoom;
+    const sY = Math.floor((centroY - (H / scale) / cam.zoom) / gY) * gY;
+    const eY = sY + (H * 2 / scale) / cam.zoom;
 
     // Dibujar Líneas Verticales
     for (let x = sX; x <= eX; x += gX) {
         let sx = toX(x);
         const esEje = Math.abs(x) < 0.01;
-        ctx.strokeStyle = esEje ? colorGrillaEje : colorGrillaSec; 
+        ctx.strokeStyle = esEje ? colorGrillaEje : colorGrillaSec;
         ctx.lineWidth = (esEje ? 2 : 1) / cam.zoom;
         ctx.beginPath(); ctx.moveTo(sx, -50000); ctx.lineTo(sx, 50000); ctx.stroke();
     }
     // Dibujar Líneas Horizontales
     for (let y = sY; y <= eY; y += gY) {
         let sy = toY(y);
-        ctx.strokeStyle = colorGrillaSec; 
+        ctx.strokeStyle = colorGrillaSec;
         ctx.lineWidth = 1 / cam.zoom;
         ctx.beginPath(); ctx.moveTo(-50000, sy); ctx.lineTo(50000, sy); ctx.stroke();
     }
@@ -99,22 +99,95 @@ function dibujarSeccion(seccion) {
         });
     } else {
         // Fallback
-        if (seccion.t) { ctx.strokeStyle = "#8b4513"; ctx.lineWidth = 2/cam.zoom; seccion.t.forEach(o => dibujarPolyFlat(ctx, Array.isArray(o)?o:o.p, toX, toY)); }
-        if (seccion.c) { ctx.strokeStyle = "#007bff"; ctx.lineWidth = 1.5/cam.zoom; seccion.c.forEach(o => dibujarPolyFlat(ctx, Array.isArray(o)?o:o.p, toX, toY)); }
+        if (seccion.t) { ctx.strokeStyle = "#8b4513"; ctx.lineWidth = 2 / cam.zoom; seccion.t.forEach(o => dibujarPolyFlat(ctx, Array.isArray(o) ? o : o.p, toX, toY)); }
+        if (seccion.c) { ctx.strokeStyle = "#007bff"; ctx.lineWidth = 1.5 / cam.zoom; seccion.c.forEach(o => dibujarPolyFlat(ctx, Array.isArray(o) ? o : o.p, toX, toY)); }
     }
 
     // Mira (Crosshair) - Puntos Mundo
+    // Mira (Crosshair) - Puntos Mundo
+    // Mira (Crosshair) - Puntos Mundo
+
+    // 1. DIBUJAR SNAP CANDIDATE (PREVISUALIZACIÓN HOVER)
+    if (appState.snapCandidate && appState.currentTool !== 'none') {
+        const sx = toX(appState.snapCandidate.x);
+        const sy = toY(appState.snapCandidate.y);
+        const size = 6 / cam.zoom;
+        ctx.strokeStyle = "#ffff00";
+        ctx.lineWidth = 2 / cam.zoom;
+        ctx.strokeRect(sx - size, sy - size, size * 2, size * 2);
+    }
+
+    // 2. DIBUJAR HERRAMIENTA DISTANCIA
+    if (appState.currentTool === 'dist' && appState.measureP1) {
+        const p1 = appState.measureP1;
+        // P2 es el punto fijo final O la posición actual del mouse (si no hay P2)
+        // Para obtener la pos del mouse en render loop, necesitamos guardarla en state o usar snapCandidate/lastMarker...
+        // Main loop no tiene acceso directo a 'e' mousemove. Usamos appState.lastMarker como proxy del mouse libre?
+        // Sí, updateHUD actualiza lastMarker con posición libre si no hay snap.
+        // Pero updateHUD solo corre en clicks (ahora), o en mousemove si tool='dist' (lo habilitaremos).
+
+        let p2 = appState.measureP2;
+        if (!p2) {
+            // Si no hemos hecho click 2, usamos el candidato de snap o la posición libre del cursor
+            p2 = appState.snapCandidate ? appState.snapCandidate : appState.currentCursorPos;
+        }
+
+        if (p2) {
+            const x1 = toX(p1.x), y1 = toY(p1.y);
+            const x2 = toX(p2.x), y2 = toY(p2.y);
+
+            // Línea
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 1.5 / cam.zoom;
+            ctx.setLineDash([5 / cam.zoom, 3 / cam.zoom]); // Punteada
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Puntos extremos
+            ctx.fillStyle = '#00ffcc';
+            const r = 3 / cam.zoom;
+            ctx.beginPath(); ctx.arc(x1, y1, r, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(x2, y2, r, 0, Math.PI * 2); ctx.fill();
+
+            // Texto Distancia
+            const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+
+            ctx.save();
+            ctx.translate(midX, midY);
+            ctx.scale(1 / cam.zoom, 1 / cam.zoom); // Ojo: Texto constante en pantalla
+            // Pero queremos que escale? Texto suele ser fixed screen size.
+            // Si escalamos 1/zoom, el texto se mantiene 'size' pixels.
+
+            ctx.fillStyle = "#000";
+            ctx.strokeStyle = "#00ffcc";
+            ctx.lineWidth = 2;
+            ctx.font = "bold 12px sans-serif";
+            const txt = `${dist.toFixed(3)}m`;
+            ctx.strokeText(txt, 0, -10);
+            ctx.fillText(txt, 0, -10);
+            ctx.restore();
+        }
+    }
+
+    // 2. DIBUJAR ÚLTIMO CLIC (MARCADOR FIJO)
     if (appState.lastMarker) {
         const px = toX(appState.lastMarker.x);
         const py = toY(appState.lastMarker.y);
-        ctx.fillStyle = colorCursor; 
+
+        ctx.fillStyle = colorCursor;
         ctx.beginPath(); ctx.arc(px, py, 4 / cam.zoom, 0, Math.PI * 2); ctx.fill();
+
         ctx.strokeStyle = colorCursorStroke; ctx.lineWidth = 1.5 / cam.zoom;
         const s = 10 / cam.zoom;
-        ctx.beginPath(); ctx.moveTo(px-s, py); ctx.lineTo(px+s, py); ctx.moveTo(px, py-s); ctx.lineTo(px, py+s); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px - s, py); ctx.lineTo(px + s, py); ctx.moveTo(px, py - s); ctx.lineTo(px, py + s); ctx.stroke();
     }
 
-    ctx.restore(); 
+    ctx.restore();
     // ============================================================
     // FIN FASE 1: Se cierra la matriz de transformación
     // ============================================================
@@ -123,13 +196,13 @@ function dibujarSeccion(seccion) {
     // ============================================================
     // FASE 2: DIBUJO HUD (Textos fijos en bordes)
     // ============================================================
-    
+
     // CONFIGURACIÓN DE GAPS (MÁRGENES)
     const gapX = 10; // Margen lateral (izquierda/derecha)
     const gapY = 10; // Margen vertical (arriba/abajo)
 
-    ctx.font = `${11 * escalaTxt}px monospace`; 
-    
+    ctx.font = `${11 * escalaTxt}px monospace`;
+
     // Función auxiliar para proyectar coordenada Mundo -> Pantalla
     const worldToScreenX = (valX) => (toX(valX) * cam.zoom) + cam.x;
     const worldToScreenY = (valY) => (toY(valY) * cam.zoom) + cam.y;
@@ -137,38 +210,38 @@ function dibujarSeccion(seccion) {
     // 1. Textos Verticales (Desfases X)
     for (let x = sX; x <= eX; x += gX) {
         const screenX = worldToScreenX(x);
-        
+
         // Solo dibujamos si cae dentro de la pantalla (con un poco de margen)
         if (screenX > -20 && screenX < W + 20) {
             const esEje = Math.abs(x) < 0.01;
             ctx.fillStyle = esEje ? colorTextoEje : colorTexto;
             ctx.textAlign = "center";
-            
+
             // Texto Abajo (H - gapY)
-            ctx.textBaseline = "bottom"; 
-            ctx.fillText(x.toFixed(1), screenX, H - gapY); 
+            ctx.textBaseline = "bottom";
+            ctx.fillText(x.toFixed(1), screenX, H - gapY);
 
             // Texto Arriba (gapY)
-            ctx.textBaseline = "top"; 
-            ctx.fillText(x.toFixed(1), screenX, gapY); 
+            ctx.textBaseline = "top";
+            ctx.fillText(x.toFixed(1), screenX, gapY);
         }
     }
 
     // 2. Textos Horizontales (Elevaciones Y)
     for (let y = sY; y <= eY; y += gY) {
         const screenY = worldToScreenY(y);
-        
+
         if (screenY > -20 && screenY < H + 20) {
             ctx.fillStyle = colorTexto;
             ctx.textBaseline = "middle";
 
             // Texto Izquierda (gapX)
-            ctx.textAlign = "left"; 
-            ctx.fillText(y.toFixed(1), gapX, screenY); 
+            ctx.textAlign = "left";
+            ctx.fillText(y.toFixed(1), gapX, screenY);
 
             // Texto Derecha (W - gapX)
-            ctx.textAlign = "right"; 
-            ctx.fillText(y.toFixed(1), W - gapX, screenY); 
+            ctx.textAlign = "right";
+            ctx.fillText(y.toFixed(1), W - gapX, screenY);
         }
     }
 }
@@ -178,7 +251,7 @@ function dibujarPolyFlat(ctx, arr, toX, toY) {
     ctx.beginPath();
     ctx.moveTo(toX(arr[0]), toY(arr[1]));
     for (let i = 2; i < arr.length; i += 2) {
-        ctx.lineTo(toX(arr[i]), toY(arr[i+1]));
+        ctx.lineTo(toX(arr[i]), toY(arr[i + 1]));
     }
     ctx.stroke();
 }
