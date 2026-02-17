@@ -74,10 +74,34 @@ body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     font-size: 14px;
     height: 100vh;
+    /* Fallback */
+    height: 100dvh;
+    /* Mobile Viewport fix */
     display: flex;
     flex-direction: column;
     overflow: hidden;
     transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ... (omitting unchanged rules) ... */
+
+/* ==========================================================================
+   6. FOOTER (Slider)
+   ========================================================================== */
+#main-footer {
+    height: auto;
+    min-height: 50px;
+    background: var(--header-bg);
+    border-top: 1px solid var(--border);
+    padding: 0 20px;
+    /* iOS Safe Area Fix */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    display: flex;
+    align-items: center;
+    /* Centrar verticalmente */
+    justify-content: center;
+    position: relative;
+    z-index: 1000;
 }
 
 /* Paneles Generales */
@@ -511,12 +535,16 @@ canvas {
     background: var(--header-bg);
     border-top: 1px solid var(--border);
     padding: 0 20px;
+    /* iOS Safe Area Fix */
+    padding-bottom: env(safe-area-inset-bottom, 20px);
     display: flex;
     align-items: center;
     /* Centrar verticalmente */
     justify-content: center;
     position: relative;
     z-index: 1000;
+    flex-shrink: 0;
+    /* Prevent shrinking */
 }
 
 .slider-wrapper {
