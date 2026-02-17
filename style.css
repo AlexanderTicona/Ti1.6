@@ -40,6 +40,8 @@
     --glass: rgba(30, 30, 30, 0.85);
     /* Efecto vidrio base */
     --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+    --canvas-bg: #000000;
+    /* Fondo del canvas (negro por defecto) */
 }
 
 /* --- MODO DÍA --- */
@@ -61,6 +63,8 @@ body.light-mode {
 
     --glass: rgba(255, 255, 255, 0.9);
     --glass-border: 1px solid rgba(0, 0, 0, 0.05);
+    --canvas-bg: #ffffff;
+    /* Fondo del canvas (blanco en día) */
 }
 
 body {
@@ -292,8 +296,8 @@ body {
     position: relative;
     flex-grow: 1;
     overflow: hidden;
-    background: #000;
-    /* Canvas siempre fondo negro o muy oscuro para contraste técnico */
+    background: var(--canvas-bg);
+    /* Variable dinámica día/noche */
 }
 
 canvas {
@@ -427,7 +431,7 @@ canvas {
     align-items: center;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 6px;
-    overflow: hidden;
+    /* overflow: hidden;  <-- REMOVED TO FIX DROPDOWN CLIPPING */
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -437,8 +441,16 @@ canvas {
     height: 32px;
 }
 
-.hud-btn-group .hud-btn:first-child {
+/* Rounded corners explicit handling */
+.hud-btn-group>.hud-btn:first-child {
+    border-top-left-radius: 5px;
+    border-bottom-left-radius: 5px;
     border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hud-btn-group>.tool-dropdown>.hud-btn {
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
 }
 
 .hud-btn-group .hud-btn.active {
@@ -659,11 +671,25 @@ input[type=range]::-webkit-slider-thumb:hover {
     border-left-color: var(--accent);
 }
 
+/* Contenido Ajustes */
 .settings-main {
     flex-grow: 1;
     padding: 30px;
     overflow-y: auto;
     background: var(--bg-dark);
+}
+
+.tab-content {
+    display: none;
+    /* Oculto por defecto */
+    animation: fadeIn 0.3s ease-out;
+    max-width: 800px;
+    width: 100%;
+}
+
+.tab-content.active {
+    display: block;
+    /* Solo visible si tiene clase active */
 }
 
 .setting-group {

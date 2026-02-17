@@ -131,12 +131,17 @@
                                 <span class="hud-label">X:</span> <span id="hudX">0.000</span>
                             </div>
                             <!-- Modo Distancia -->
-                            <div id="info-dist" style="display: none;">
-                                <span class="hud-item">📍1: <span id="distP1">--</span></span>
-                                <span class="hud-item">📍2: <span id="distP2">--</span></span>
-                                <span class="hud-item highlight"
-                                    style="color: #00ffcc; font-weight: bold; margin-left: 5px;">📏 <span
-                                        id="distVal">0.000m</span></span>
+                            <div id="info-dist"
+                                style="display: none; flex-direction: column; align-items: flex-start; gap: 4px;">
+                                <div class="hud-row">📍1: <span id="distP1">--</span></div>
+                                <div class="hud-row">📍2: <span id="distP2">--</span></div>
+                                <div class="hud-sep-h"
+                                    style="width: 100%; height: 1px; background: rgba(255,255,255,0.1); margin: 2px 0;">
+                                </div>
+                                <div class="hud-row" style="width: 100%; justify-content: flex-end;">
+                                    <span class="highlight" style="color: #00ffcc; font-weight: bold;">📏 <span
+                                            id="distVal">0.000m</span></span>
+                                </div>
                             </div>
                             <!-- Modo Pendiente -->
                             <div id="info-slope"

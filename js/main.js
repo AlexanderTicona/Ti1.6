@@ -770,16 +770,32 @@ window.onresize = resizeAll;
 
 // AJUSTES
 function openTab(tabId) {
+    // 1. Ocultar todos los contenidos
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    
+    // 2. Desactivar todos los botones
     document.querySelectorAll('.setting-tab').forEach(el => el.classList.remove('active'));
-    document.getElementById(tabId).classList.add('active');
 
+    // 3. Activar contenido seleccionado
+    const target = document.getElementById(tabId);
+    if (target) {
+        target.classList.add('active');
+    }
+
+    // 4. Activar botón correspondiente (Mapeo directo)
+    const map = {
+        'tab-general': 0,
+        'tab-planta': 1,
+        'tab-perfil': 2,
+        'tab-seccion': 3,
+        'tab-multi': 4
+    };
+    
     const buttons = document.querySelectorAll('.setting-tab');
-    if (tabId === 'tab-general') buttons[0].classList.add('active');
-    if (tabId === 'tab-planta') buttons[1].classList.add('active');
-    if (tabId === 'tab-perfil') buttons[2].classList.add('active');
-    if (tabId === 'tab-seccion') buttons[3].classList.add('active');
-    if (tabId === 'tab-multi') buttons[4].classList.add('active');
+    const index = map[tabId];
+    if (index !== undefined && buttons[index]) {
+        buttons[index].classList.add('active');
+    }
 }
 
 // ==========================================================================
