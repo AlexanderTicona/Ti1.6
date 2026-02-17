@@ -117,23 +117,39 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
                 // Capa Corredor General
                 appConfig.layers.seccion['Corredor'] = { color: '#ff0000', width: 1.5, visible: true, type: 'c' };
 
-                // ... (Cálculo de límites igual que antes) ...
+                // PRE-CÁLCULO DE LÍMITES (OPTIMIZACIÓN CRÍTICA)
                 let gMinY = Infinity, gMaxY = -Infinity;
-                const pasoScan = raw.secciones.length > 500 ? 10 : 1;
-                for (let k = 0; k < raw.secciones.length; k += pasoScan) {
-                    const sec = raw.secciones[k];
-                    const escanear = (listas) => {
+                const pasoScan = raw.secciones.length > 500 ? 5 : 1; // Un poco más detallado para los globales
+
+                raw.secciones.forEach((sec, idx) => {
+                    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+                    const updateBounds = (listas) => {
                         if (!listas) return;
                         listas.forEach(obj => {
                             const arr = Array.isArray(obj) ? obj : (obj.p || []);
-                            for (let i = 1; i < arr.length; i += 2) {
-                                const y = arr[i];
-                                if (y > -1000 && y < 8000) { if (y < gMinY) gMinY = y; if (y > gMaxY) gMaxY = y; }
+                            for (let i = 0; i < arr.length; i += 2) {
+                                const x = arr[i], y = arr[i + 1];
+                                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                                if (y < minY) minY = y; if (y > maxY) maxY = y;
                             }
                         });
                     };
-                    escanear(sec.t); escanear(sec.c);
-                }
+                    updateBounds(sec.t);
+                    updateBounds(sec.c);
+
+                    // Guardamos caché
+                    if (minX === Infinity) { minX = -10; maxX = 10; minY = 0; maxY = 10; }
+                    sec._cach = { minX, maxX, minY, maxY };
+
+                    // Globales (muestreo)
+                    if (idx % pasoScan === 0) {
+                        if (minY < gMinY) gMinY = minY;
+                        if (maxY > gMaxY) gMaxY = maxY;
+                    }
+                });
+
+                // Si falló el global
                 if (gMinY === Infinity) { gMinY = 0; gMaxY = 20; }
                 const alto = gMaxY - gMinY;
                 appState.limitesGlobales.seccion = { minX: -50, maxX: 50, minY: gMinY - (alto * 0.1), maxY: gMaxY + (alto * 0.1) };
@@ -772,7 +788,7 @@ window.onresize = resizeAll;
 function openTab(tabId) {
     // 1. Ocultar todos los contenidos
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    
+
     // 2. Desactivar todos los botones
     document.querySelectorAll('.setting-tab').forEach(el => el.classList.remove('active'));
 
@@ -790,7 +806,7 @@ function openTab(tabId) {
         'tab-seccion': 3,
         'tab-multi': 4
     };
-    
+
     const buttons = document.querySelectorAll('.setting-tab');
     const index = map[tabId];
     if (index !== undefined && buttons[index]) {

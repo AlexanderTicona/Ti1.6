@@ -77,11 +77,31 @@ const appConfig = {
 
 // 3. SINCRONIZADOR
 function syncAllViews() {
-    if (appState.planta && typeof dibujarPlanta === 'function') dibujarPlanta();
-    if (appState.perfil && typeof dibujarPerfil === 'function') dibujarPerfil();
+    const dashboard = document.getElementById('main-dashboard');
+    if (!dashboard) return;
 
+    // Detectar layout activo
+    const isMulti = dashboard.classList.contains('layout-multi');
+    const isPlanta = dashboard.classList.contains('layout-planta');
+    const isPerfil = dashboard.classList.contains('layout-perfil');
+    // Sección siempre visible en su layout o en multi
+    const isSeccion = dashboard.classList.contains('layout-seccion') || isMulti;
+
+    // 1. PLANTA (Solo si visible)
+    if (appState.planta && (isMulti || isPlanta) && typeof dibujarPlanta === 'function') {
+        dibujarPlanta();
+    }
+
+    // 2. PERFIL (Solo si visible)
+    if (appState.perfil && (isMulti || isPerfil) && typeof dibujarPerfil === 'function') {
+        dibujarPerfil();
+    }
+
+    // 3. SECCIÓN Y UI
     if (appState.secciones && appState.secciones[appState.currentIdx]) {
         const seccionActual = appState.secciones[appState.currentIdx];
+
+        // Actualizar Input KM
         const kmInput = document.getElementById('kmInput');
         if (kmInput && document.activeElement !== kmInput) {
             const m = seccionActual.k || seccionActual.km || 0;
@@ -89,12 +109,14 @@ function syncAllViews() {
             const rest = (m % 1000).toFixed(2).padStart(6, '0');
             kmInput.value = `${km}+${rest}`;
 
-            // --- NUEVO: AUTO ZOOM MULTIVISTA ---
-            // Solo si estamos funcionales y la config lo permite
-            if (typeof actualizarEncuadreInteligente === 'function') {
+            // AUTO ZOOM (Solo si estamos REALMENTE en Multi)
+            if (isMulti && typeof actualizarEncuadreInteligente === 'function') {
                 actualizarEncuadreInteligente(m);
             }
         }
-        if (typeof dibujarSeccion === 'function') dibujarSeccion(seccionActual);
+
+        if (isSeccion && typeof dibujarSeccion === 'function') {
+            dibujarSeccion(seccionActual);
+        }
     }
 }

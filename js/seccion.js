@@ -19,21 +19,31 @@ function dibujarSeccion(seccion) {
     if (!seccion) return;
 
     // 1. CÁLCULO DE LÍMITES Y ESCALAS
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    const escanear = (listas) => {
-        if (!listas) return;
-        listas.forEach(obj => {
-            const arr = Array.isArray(obj) ? obj : (obj.p || []);
-            for (let i = 0; i < arr.length; i += 2) {
-                const x = arr[i], y = arr[i + 1];
-                if (x < minX) minX = x; if (x > maxX) maxX = x;
-                if (y < minY) minY = y; if (y > maxY) maxY = y;
-            }
-        });
-    };
-    escanear(seccion.t); escanear(seccion.c);
+    let minX, maxX, minY, maxY;
 
-    if (minY > maxY) { minY = 0; maxY = 10; minX = -10; maxX = 10; }
+    // USAR CACHÉ (Optimización)
+    if (seccion._cach) {
+        ({ minX, maxX, minY, maxY } = seccion._cach);
+    } else {
+        // Fallback: Calcular si no existe caché
+        minX = Infinity; maxX = -Infinity; minY = Infinity; maxY = -Infinity;
+        const escanear = (listas) => {
+            if (!listas) return;
+            listas.forEach(obj => {
+                const arr = Array.isArray(obj) ? obj : (obj.p || []);
+                for (let i = 0; i < arr.length; i += 2) {
+                    const x = arr[i], y = arr[i + 1];
+                    if (x < minX) minX = x; if (x > maxX) maxX = x;
+                    if (y < minY) minY = y; if (y > maxY) maxY = y;
+                }
+            });
+        };
+        escanear(seccion.t); escanear(seccion.c);
+        if (minY > maxY) { minY = 0; maxY = 10; minX = -10; maxX = 10; }
+
+        // Guardamos para la próxima
+        seccion._cach = { minX, maxX, minY, maxY };
+    }
 
     const rangeX = (maxX - minX) * 1.4;
     const rangeY = (maxY - minY) * 1.4;
