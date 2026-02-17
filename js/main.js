@@ -164,6 +164,17 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
                 // Reconstruir UI de Ajustes
                 buildDynamicSettings();
                 resizeAll(); resetView('planta'); resetView('perfil'); resetView('seccion'); syncAllViews();
+
+                // --- CÓDIGO NUEVO: OCULTAR PANTALLA DE BIENVENIDA ---
+                const welcomeScreen = document.getElementById('welcome-screen');
+                if (welcomeScreen) {
+                    welcomeScreen.style.opacity = '0';
+                    setTimeout(() => {
+                        welcomeScreen.style.display = 'none';
+                    }, 500);
+                }
+                // ----------------------------------------------------
+
                 alert("✅ Archivo TiQAL cargado.");
             } else { alert("⚠️ Archivo sin datos válidos."); }
 
@@ -374,20 +385,19 @@ function updateHUD(e) {
 
 // --- NUEVO: SISTEMA DE MEDICIÓN (DROPDOWN + SNAP INDEPENDIENTE) ---
 
-// 1. Control del Dropdown
-function toggleMeasureDropdown() {
-    document.getElementById("measureDropdown").classList.toggle("show");
+// 1. Control del Dropdown MEJORADO
+function toggleMeasureDropdown(event) {
+    if (event) event.stopPropagation(); // Evitar que el click llegue a window
+    const dropdown = document.getElementById("measureDropdown");
+    dropdown.classList.toggle("show");
 }
 
 // Cerrar el dropdown si se hace clic fuera
 window.onclick = function (event) {
-    if (!event.target.matches('.hud-btn') && !event.target.matches('#btnMeasureMenu')) {
-        var dropdowns = document.getElementsByClassName("dropdown-content");
-        for (var i = 0; i < dropdowns.length; i++) {
-            var openDropdown = dropdowns[i];
-            if (openDropdown.classList.contains('show')) {
-                openDropdown.classList.remove('show');
-            }
+    if (!event.target.closest('#btnMeasureMenu')) {
+        const dropdown = document.getElementById("measureDropdown");
+        if (dropdown && dropdown.classList.contains('show')) {
+            dropdown.classList.remove('show');
         }
     }
 }

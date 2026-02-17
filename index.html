@@ -112,6 +112,18 @@
                 <header>VISTA DE PLANTA</header>
                 <div class="canvas-wrapper">
                     <canvas id="canvasPlanta"></canvas>
+
+                    <!-- FLECHA NORTE -->
+                    <div class="north-arrow" title="Norte">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2l-6 16h6v4h6l-6-20z" fill="currentColor" fill-opacity="0.2"></path>
+                            <path d="M12 2l6 16h-6v4"></path>
+                            <text x="12" y="24" text-anchor="middle" font-size="8" font-weight="bold"
+                                fill="currentColor" style="transform: translateY(8px);">N</text>
+                        </svg>
+                    </div>
+
                     <div class="panel-controls">
                         <button class="btn-reset-mini" title="Más Herramientas">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -176,7 +188,7 @@
                                     </svg>
                                 </button>
                                 <div class="tool-dropdown">
-                                    <button class="hud-btn" id="btnMeasureMenu" onclick="toggleMeasureDropdown()"
+                                    <button class="hud-btn" id="btnMeasureMenu" onclick="toggleMeasureDropdown(event)"
                                         title="Cambiar Herramienta">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                                             stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -510,6 +522,28 @@
             });
         }
     </script>
+
+    <!-- PANTALLA DE BIENVENIDA (OVERLAY SEGURO) -->
+    <div id="welcome-screen">
+        <div class="welcome-content">
+            <div class="logo-large">
+                <img src="Logo-Tiqal-Blanco.png" alt="Logo TiQAL">
+            </div>
+            <h1>Bienvenido a Visor TiQAL</h1>
+            <p>La herramienta profesional para visualización de ingeniería civil.</p>
+
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span>Haz clic para abrir un archivo .TiQAL</span>
+            </div>
+            <p class="subtext">Versión 2.0 | Deep Space UI</p>
+        </div>
+    </div>
 
     <script src="js/state.js"></script>
     <script src="js/seccion.js"></script>
