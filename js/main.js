@@ -198,7 +198,7 @@ function handleStart(e, tipo) {
 
             if (appState.currentTool === 'point') {
                 updateHUD(e); // Comportamiento existente (actualiza lastMarker)
-            } else if (appState.currentTool === 'dist') {
+            } else if (appState.currentTool === 'dist' || appState.currentTool === 'slope') {
                 // Lógica de 2 pasos
                 if (appState.measureP1 && appState.measureP2) {
                     // Click 3: Empezar nueva medición
@@ -427,6 +427,9 @@ function updateMeasureUI() {
     } else if (appState.activeToolType === 'dist') {
         btnAction.innerHTML = "📏";
         if (optDist) optDist.classList.add('active');
+    } else if (appState.activeToolType === 'slope') {
+        btnAction.innerHTML = "📉";
+        if (document.getElementById('opt-slope')) document.getElementById('opt-slope').classList.add('active');
     }
 
     // 2. Estado Activo/Inactivo (Color)
@@ -460,10 +463,12 @@ function updateInfoHUD(mouseX, mouseY) {
     // Elementos del DOM
     const infoPoint = document.getElementById('info-point');
     const infoDist = document.getElementById('info-dist');
+    const infoSlope = document.getElementById('info-slope');
 
     // CASO 1: MODO PUNTO (O NINGUNO)
     if (appState.currentTool === 'point' || appState.currentTool === 'none') {
         if (infoDist) infoDist.style.display = 'none';
+        if (infoSlope) infoSlope.style.display = 'none';
         if (infoPoint) infoPoint.style.display = 'block';
 
         // Si es 'none', pero hay lastMarker, lo mostramos. Si no, mostramos 0 o mouse.
@@ -502,6 +507,7 @@ function updateInfoHUD(mouseX, mouseY) {
     // CASO 2: MODO DISTANCIA
     if (appState.currentTool === 'dist') {
         if (infoPoint) infoPoint.style.display = 'none';
+        if (infoSlope) infoSlope.style.display = 'none';
         if (infoDist) infoDist.style.display = 'block';
 
         const distP1 = document.getElementById('distP1');
@@ -510,9 +516,9 @@ function updateInfoHUD(mouseX, mouseY) {
 
         // P1
         if (appState.measureP1) {
-            distP1.innerText = `${appState.measureP1.x.toFixed(2)}, ${appState.measureP1.y.toFixed(2)}`;
+            distP1.innerText = `X=${appState.measureP1.x.toFixed(3)} │ Z=${appState.measureP1.y.toFixed(3)}`;
         } else {
-            distP1.innerText = "--, --";
+            distP1.innerText = "X=-- │ Z=--";
         }
 
         // P2 (Actual)
@@ -532,7 +538,7 @@ function updateInfoHUD(mouseX, mouseY) {
         }
 
         if (p2) {
-            distP2.innerText = `${p2.x.toFixed(2)}, ${p2.y.toFixed(2)}`;
+            distP2.innerText = `X=${p2.x.toFixed(3)} │ Z=${p2.y.toFixed(3)}`;
             if (isSnapped) distP2.style.color = '#ffff00';
             else distP2.style.color = '';
 
@@ -544,8 +550,83 @@ function updateInfoHUD(mouseX, mouseY) {
                 distVal.innerText = "0.000m";
             }
         } else {
-            distP2.innerText = "--, --";
+            distP2.innerText = "X=-- │ Z=--";
             distVal.innerText = "--";
+        }
+    }
+
+    // CASO 3: MODO PENDIENTE
+    if (appState.currentTool === 'slope') {
+        if (infoPoint) infoPoint.style.display = 'none';
+        if (infoDist) infoDist.style.display = 'none';
+        if (infoSlope) infoSlope.style.display = 'block';
+
+        const slopeP1 = document.getElementById('slopeP1');
+        const slopeP2 = document.getElementById('slopeP2');
+        const slopeVal = document.getElementById('slopeVal');
+        const slopeRatio = document.getElementById('slopeRatio');
+        const slopeH = document.getElementById('slopeH');
+        const slopeV = document.getElementById('slopeV');
+        const slopeReal = document.getElementById('slopeReal');
+
+        // P1
+        if (appState.measureP1) {
+            slopeP1.innerText = `X=${appState.measureP1.x.toFixed(3)} │ Z=${appState.measureP1.y.toFixed(3)}`;
+        } else {
+            slopeP1.innerText = "X=-- │ Z=--";
+        }
+
+        // P2 (Actual)
+        let p2 = appState.measureP2;
+        // Si no hay P2 fijo, usamos el mouse/snap actual
+        if (!p2) {
+            if (appState.snapCandidate) {
+                p2 = appState.snapCandidate;
+            } else if (mouseX !== undefined) {
+                p2 = { x: mouseX, y: mouseY };
+            } else if (appState.lastMarker) {
+                p2 = appState.lastMarker;
+            }
+        }
+
+        if (p2) {
+            slopeP2.innerText = `X=${p2.x.toFixed(3)} │ Z=${p2.y.toFixed(3)}`;
+
+            // CÁLCULOS
+            if (appState.measureP1) {
+                const dx = Math.abs(p2.x - appState.measureP1.x);
+                const dy = Math.abs(p2.y - appState.measureP1.y); // Diferencia de altura (dZ realmente)
+                const real = Math.hypot(dx, dy);
+
+                // Pendiente %
+                let pct = 0;
+                if (dx !== 0) {
+                    pct = (dy / dx) * 100;
+                } else {
+                    pct = 9999.9; // Infinito vertical
+                }
+
+                // Talud H:V (X:1)
+                let taludStr = "--:1";
+                if (dy !== 0) {
+                    const ratio = dx / dy;
+                    taludStr = `${ratio.toFixed(2)}:1`;
+                } else {
+                    taludStr = "∞:0"; // Plano
+                }
+
+                slopeVal.innerText = `${pct.toFixed(2)}%`;
+                slopeRatio.innerText = taludStr;
+                slopeH.innerText = dx.toFixed(2);
+                slopeV.innerText = dy.toFixed(2);
+                slopeReal.innerText = real.toFixed(3);
+
+            } else {
+                slopeVal.innerText = "0.0%"; slopeRatio.innerText = "--:1";
+                slopeH.innerText = "0.00"; slopeV.innerText = "0.00"; slopeReal.innerText = "0.00";
+            }
+        } else {
+            slopeP2.innerText = "X=-- │ Z=--";
         }
     }
 }
@@ -582,9 +663,18 @@ function checkSnapHover(e) {
         return;
     }
 
-    // Si es herramienta DISTANCIA, queremos actualizar HUD (y lastMarker para dibujo) en tiempo real
-    if (appState.currentTool === 'dist') {
+    // Guardamos la posición actual del cursor (para el rubberband de distancia)
+    // ESTO DEBE HACERSE SIEMPRE, incluso si el Snap está desactivado
+    appState.currentCursorPos = { x: rx, y: ry };
+
+    // Si es herramienta DISTANCIA o PENDIENTE:
+    // 1. Actualizar HUD
+    // 2. Si estamos en mitad de medición (P1 definido), forzar Redraw para ver la línea elástica
+    if (appState.currentTool === 'dist' || appState.currentTool === 'slope') {
         updateInfoHUD(rx, ry);
+        if (appState.measureP1) {
+            syncAllViews();
+        }
     }
 
     // Si Snap NO está activo, salimos (ya actualizamos HUD arriba si era dist)
@@ -592,9 +682,6 @@ function checkSnapHover(e) {
         if (appState.snapCandidate) { appState.snapCandidate = null; syncAllViews(); }
         return;
     }
-
-    // Guardamos la posición actual del cursor (para el rubberband de distancia)
-    appState.currentCursorPos = { x: rx, y: ry };
 
     const currentSec = appState.secciones[appState.currentIdx];
     const snapDistPx = 15;
@@ -624,10 +711,11 @@ function checkSnapHover(e) {
     const prevCandidate = appState.snapCandidate;
     appState.snapCandidate = candidate;
 
-    // Solo redibujamos si cambia el candidato visual (cuadrado amarillo) O si estamos midiendo distancia (línea dinámica)
-    if (candidate || prevCandidate || appState.currentTool === 'dist') {
+    // Solo redibujamos si cambia el candidato visual (cuadrado amarillo) O si estamos midiendo distancia/pendiente
+    // Nota: El redraw de distancia ya lo forzamos arriba si era necesario, pero por si acaso cambia el snap:
+    if (candidate || prevCandidate) {
         syncAllViews();
-        if (appState.currentTool === 'dist') updateInfoHUD(rx, ry);
+        if (appState.currentTool === 'dist' || appState.currentTool === 'slope') updateInfoHUD(rx, ry);
     }
 }
 

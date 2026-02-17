@@ -117,14 +117,9 @@ function dibujarSeccion(seccion) {
         ctx.strokeRect(sx - size, sy - size, size * 2, size * 2);
     }
 
-    // 2. DIBUJAR HERRAMIENTA DISTANCIA
-    if (appState.currentTool === 'dist' && appState.measureP1) {
+    // 2. DIBUJAR HERRAMIENTA DISTANCIA O PENDIENTE
+    if ((appState.currentTool === 'dist' || appState.currentTool === 'slope') && appState.measureP1) {
         const p1 = appState.measureP1;
-        // P2 es el punto fijo final O la posición actual del mouse (si no hay P2)
-        // Para obtener la pos del mouse en render loop, necesitamos guardarla en state o usar snapCandidate/lastMarker...
-        // Main loop no tiene acceso directo a 'e' mousemove. Usamos appState.lastMarker como proxy del mouse libre?
-        // Sí, updateHUD actualiza lastMarker con posición libre si no hay snap.
-        // Pero updateHUD solo corre en clicks (ahora), o en mousemove si tool='dist' (lo habilitaremos).
 
         let p2 = appState.measureP2;
         if (!p2) {
@@ -140,36 +135,59 @@ function dibujarSeccion(seccion) {
             ctx.beginPath();
             ctx.moveTo(x1, y1);
             ctx.lineTo(x2, y2);
-            ctx.strokeStyle = '#00ffcc';
+
+            if (appState.currentTool === 'slope') {
+                ctx.strokeStyle = '#ff9900'; // Naranja para pendiente
+            } else {
+                ctx.strokeStyle = '#00ffcc'; // Cyan para distancia
+            }
+
             ctx.lineWidth = 1.5 / cam.zoom;
             ctx.setLineDash([5 / cam.zoom, 3 / cam.zoom]); // Punteada
             ctx.stroke();
             ctx.setLineDash([]);
 
             // Puntos extremos
-            ctx.fillStyle = '#00ffcc';
+            ctx.fillStyle = (appState.currentTool === 'slope') ? '#ff9900' : '#00ffcc';
             const r = 3 / cam.zoom;
             ctx.beginPath(); ctx.arc(x1, y1, r, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(x2, y2, r, 0, Math.PI * 2); ctx.fill();
 
-            // Texto Distancia
-            const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+            // Texto (Distancia o Pendiente)
+            const dx = Math.abs(p2.x - p1.x);
+            const dy = Math.abs(p2.y - p1.y); // dZ
+
+            let txt = "";
+            if (appState.currentTool === 'slope') {
+                let pct = 0;
+                if (dx !== 0) pct = (dy / dx) * 100;
+                else pct = 9999.9;
+                txt = `${pct.toFixed(2)}%`;
+            } else {
+                const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                txt = `${dist.toFixed(3)}m`;
+            }
+
             const midX = (x1 + x2) / 2;
             const midY = (y1 + y2) / 2;
 
             ctx.save();
             ctx.translate(midX, midY);
-            ctx.scale(1 / cam.zoom, 1 / cam.zoom); // Ojo: Texto constante en pantalla
-            // Pero queremos que escale? Texto suele ser fixed screen size.
-            // Si escalamos 1/zoom, el texto se mantiene 'size' pixels.
+            ctx.scale(1 / cam.zoom, 1 / cam.zoom);
 
             ctx.fillStyle = "#000";
-            ctx.strokeStyle = "#00ffcc";
+            ctx.strokeStyle = (appState.currentTool === 'slope') ? '#ff9900' : '#00ffcc';
             ctx.lineWidth = 2;
             ctx.font = "bold 12px sans-serif";
-            const txt = `${dist.toFixed(3)}m`;
-            ctx.strokeText(txt, 0, -10);
-            ctx.fillText(txt, 0, -10);
+
+            // Fondo semitransparente para leer mejor
+            const tm = ctx.measureText(txt);
+            ctx.fillStyle = "rgba(0,0,0,0.6)";
+            ctx.fillRect(-tm.width / 2 - 2, -22, tm.width + 4, 16);
+
+            ctx.fillStyle = (appState.currentTool === 'slope') ? '#ff9900' : '#00ffcc';
+            // ctx.strokeText(txt, -tm.width/2, -10); // Quitamos stroke para mejor legibilidad con fondo
+            ctx.fillText(txt, -tm.width / 2, -10);
             ctx.restore();
         }
     }
