@@ -45,8 +45,8 @@ function dibujarSeccion(seccion) {
         seccion._cach = { minX, maxX, minY, maxY };
     }
 
-    const rangeX = (maxX - minX) * 1.4;
-    const rangeY = (maxY - minY) * 1.4;
+    const rangeX = (maxX - minX) * 1.0; //Gap o margen de seguridad
+    const rangeY = (maxY - minY) * 1.2; //Gap o margen de seguridad
     const scale = Math.min(W / rangeX, H / rangeY);
     const marginX = (W - (maxX - minX) * scale) / 2;
     const marginY = (H - (maxY - minY) * scale) / 2;

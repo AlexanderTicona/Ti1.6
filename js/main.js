@@ -197,6 +197,9 @@ function handleStart(e, tipo) {
     } else {
         // --- LOGICA DE CLIC EN MEDICIÓN ---
         if (tipo === 'seccion') {
+            // FIX: En pantallas táctiles no hay "hover", así que forzamos el cálculo de Snap al tocar
+            checkSnapHover(e); // Actualiza appState.snapCandidate si estamos cerca de un punto
+
             const clickPos = appState.snapCandidate ? appState.snapCandidate :
                 { x: ((getPos(e).x - canvasSec.getBoundingClientRect().left) * window.devicePixelRatio - appState.cameras.seccion.x) / appState.cameras.seccion.zoom, y: 0 };
             // Nota: El cálculo 'raw' de arriba es aproximado, mejor usamos lo que ya calcula updateHUD o recalculamos bien.
@@ -239,8 +242,10 @@ function handleStart(e, tipo) {
 [{ c: canvasSec, t: 'seccion' }, { c: canvasPlanta, t: 'planta' }, { c: canvasPerfil, t: 'perfil' }].forEach(item => {
     item.c.addEventListener('mousedown', e => handleStart(e, item.t));
     item.c.addEventListener('touchstart', e => {
-        if (e.touches.length === 1) handleStart(e, item.t);
-        else if (e.touches.length === 2) {
+        if (e.touches.length === 1) {
+            e.preventDefault(); // Evitar eventos de mouse fantasmas (click doble)
+            handleStart(e, item.t);
+        } else if (e.touches.length === 2) {
             // Guardamos distancia inicial para el pinch zoom
             distInicial = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
         }
