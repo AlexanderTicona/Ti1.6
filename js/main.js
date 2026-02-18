@@ -1238,184 +1238,267 @@ window.addEventListener('DOMContentLoaded', () => { applyTheme(); });
 // ============================================================
 
 // 1. CEREBRO: DECIDE QUÉ CAPTURAR Y PONE EL TÍTULO CORRECTO
+// ============================================================
+// SISTEMA DE GENERACIÓN DE PLANOS (Blueprint Engine)
+// ============================================================
+
+// 1. DESPACHADOR PRINCIPAL
 function capturaInteligente() {
     const dashboard = document.getElementById('main-dashboard');
     const layout = dashboard.className;
 
     if (layout === 'layout-multi') {
-        capturarMultiVista();
+        // En multi-vista, pasamos null como canvas fuente, la función interna se encargará
+        generarPlanoIngenieria(null, "Multi-Vista General", true);
     } else {
-        let activeCanvas = '';
-        let activeName = '';
+        let activeCanvasId = '';
         let activeTitle = '';
 
-        // TÍTULOS ELEGANTES (Title Case)
         if (layout.includes('planta')) {
-            activeCanvas = 'canvasPlanta';
-            activeName = 'Planta';
-            activeTitle = 'Vista Planta';
+            activeCanvasId = 'canvasPlanta';
+            activeTitle = 'PLANTA GENERAL';
         } else if (layout.includes('perfil')) {
-            activeCanvas = 'canvasPerfil';
-            activeName = 'Perfil';
-            activeTitle = 'Vista Perfil Longitudinal';
+            activeCanvasId = 'canvasPerfil';
+            activeTitle = 'PERFIL LONGITUDINAL';
         } else {
-            activeCanvas = 'visorCanvas';
-            activeName = 'Seccion';
-            activeTitle = 'Vista Sección Transversal';
+            activeCanvasId = 'visorCanvas';
+            activeTitle = 'SECCIÓN TRANSVERSAL';
         }
 
-        guardarImagenConEncabezado(activeCanvas, activeName, activeTitle);
+        const canvas = document.getElementById(activeCanvasId);
+        if (canvas) {
+            generarPlanoIngenieria(canvas, activeTitle, false);
+        } else {
+            alert("⚠️ No se detectó una vista activa para exportar.");
+        }
     }
 }
 
-// 2. IMAGEN ÚNICA (ESCALADA HD)
-function guardarImagenConEncabezado(idCanvas, nombreBase, tituloVista) {
-    const canvas = document.getElementById(idCanvas);
-    if (!canvas) return;
+// 2. MOTOR DE RENDERIZADO (Estilo CAD)
+function generarPlanoIngenieria(sourceCanvas, tituloVista, isMulti) {
+    // Configuración Hoja (HD Landscape)
+    // Configuración Hoja (4K UHD Landscape)
+    const SCALE = 2; // 1 = 1080p, 2 = 2160p (4K)
 
-    // Calcular Escala Real (HD)
-    const scale = canvas.width / canvas.clientWidth;
-    const altoBarra = 40 * scale;
-    const width = canvas.width;
-    const height = canvas.height + altoBarra;
+    const W = 1920 * SCALE;
+    const H = 1080 * SCALE;
 
-    const masterCanvas = document.createElement('canvas');
-    masterCanvas.width = width;
-    masterCanvas.height = height;
-    const ctx = masterCanvas.getContext('2d');
+    // Márgenes (Cajetín)
+    const mOut = 20 * SCALE;
+    const mIn = 10 * SCALE;
 
-    // Fondos
-    const isLight = document.body.classList.contains('light-mode');
-    ctx.fillStyle = isLight ? '#ffffff' : '#0c0c0c';
-    ctx.fillRect(0, 0, width, height); // Fondo contenido
-    ctx.fillStyle = isLight ? "#e0e0e0" : "#1a1a1a";
-    ctx.fillRect(0, 0, width, altoBarra); // Fondo barra
+    // Alturas Áreas
+    const hHeader = 70 * SCALE;
+    const hFooter = 60 * SCALE;
 
-    // --- TEXTOS ---
-    const textoPK = getCurrentPKText();
-    // Solo Fecha (sin hora)
-    const soloFecha = new Date().toLocaleDateString();
+    // Crear Canvas en Memoria
+    const sheet = document.createElement('canvas');
+    sheet.width = W;
+    sheet.height = H;
+    const ctx = sheet.getContext('2d');
 
-    // A. Título (Izquierda)
-    ctx.font = `bold ${16 * scale}px Arial`;
-    ctx.fillStyle = isLight ? "#333" : "#fff";
-    ctx.textAlign = "left";
-    ctx.fillText(tituloVista, 20 * scale, 26 * scale);
+    // ----------------------------------------------------
+    // A. FONDO Y MARCO (ESTILO PLANO)
+    // ----------------------------------------------------
+    // 1. Fondo Papel (Siempre Blanco)
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, W, H);
 
-    // B. PK (Centro - Color Cian/Azul)
-    ctx.font = `bold ${20 * scale}px monospace`;
-    ctx.fillStyle = isLight ? "#0056b3" : "#00fbff";
-    ctx.textAlign = "center";
-    ctx.fillText(textoPK, width / 2, 27 * scale);
+    // 2. Marco Negro Exterior
+    ctx.lineWidth = 3 * SCALE;
+    ctx.strokeStyle = '#000000';
+    ctx.strokeRect(mOut, mOut, W - (mOut * 2), H - (mOut * 2));
 
-    // C. Marca TiQAL (Derecha - Fuerte)
-    ctx.textAlign = "right";
-    ctx.font = `bold ${14 * scale}px Arial`;
-    ctx.fillStyle = isLight ? "#333" : "#fff";
-    // Lo dibujamos un poco antes del borde para dejar espacio a la fecha o viceversa
-    // Estrategia: Ponemos TiQAL arriba y fecha pequeña al lado, o TiQAL seguido de fecha tenue.
-    // Haremos: "TiQAL" (fuerte)  "13/02/2026" (tenue)
+    // 3. Líneas Divisorias (Header y Footer)
+    ctx.beginPath();
+    // Línea bajo Header
+    const yHeaderLine = mOut + hHeader;
+    ctx.moveTo(mOut, yHeaderLine);
+    ctx.lineTo(W - mOut, yHeaderLine);
+    // Línea sobre Footer
+    const yFooterLine = H - mOut - hFooter;
+    ctx.moveTo(mOut, yFooterLine);
+    ctx.lineTo(W - mOut, yFooterLine);
+    ctx.stroke();
 
-    // Posición base derecha
-    const xRight = width - (20 * scale);
+    // ----------------------------------------------------
+    // B. ENCABEZADO (HEADER)
+    // ----------------------------------------------------
+    // Logo (Texto Simulado o Imagen si existiera)
+    ctx.fillStyle = '#000000';
+    ctx.font = `bold ${32 * SCALE}px Arial`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText("TiQAL", mOut + (30 * SCALE), mOut + (hHeader / 2) - (10 * SCALE));
 
-    // 1. Dibujar Fecha (Tenue)
-    ctx.font = `${11 * scale}px monospace`;
-    ctx.fillStyle = isLight ? "#888" : "#666"; // Gris tenue
-    ctx.fillText(soloFecha, xRight, 26 * scale);
+    // Subtítulo pequeño bajo el logo
+    ctx.fillStyle = '#666666'; // Gris tenue
+    ctx.font = `${14 * SCALE}px Arial`;
+    ctx.fillText("Ticona Q. Alexander", mOut + (30 * SCALE), mOut + (hHeader / 2) + (15 * SCALE));
 
-    // Medimos cuánto ocupa la fecha para poner TiQAL a su izquierda
-    const anchoFecha = ctx.measureText(soloFecha).width;
+    // Título Central (Grande)
+    ctx.font = `bold ${40 * SCALE}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(tituloVista, W / 2, mOut + (hHeader / 2));
 
-    // 2. Dibujar TiQAL (Fuerte)
-    ctx.font = `bold ${14 * scale}px Arial`;
-    ctx.fillStyle = isLight ? "#333" : "#fff";
-    ctx.fillText("TiQAL  ", xRight - anchoFecha - (10 * scale), 26 * scale);
+    // Fecha (Derecha)
+    const now = new Date();
+    const fecha = now.toLocaleDateString();
 
-    // Pegar Canvas
-    ctx.drawImage(canvas, 0, altoBarra);
-    descargarCanvas(masterCanvas, nombreBase);
-}
+    ctx.textAlign = 'right';
+    ctx.font = `bold ${16 * SCALE}px Arial`;
+    ctx.fillText(fecha, W - mOut - (30 * SCALE), mOut + (hHeader / 2));
 
-// 3. MULTI-VISTA (ESCALADA HD)
-function capturarMultiVista() {
-    const dashboard = document.getElementById('main-dashboard');
-    const rectDash = dashboard.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    // ----------------------------------------------------
+    // C. CONTENIDO (VIEWPORT)
+    // ----------------------------------------------------
+    // Área disponible para dibujo
+    const viewX = mOut + mIn;
+    const viewY = yHeaderLine + mIn;
+    const viewW = W - (mOut * 2) - (mIn * 2);
+    const viewH = yFooterLine - yHeaderLine - (mIn * 2);
 
-    const altoBarra = 40 * dpr;
-    const width = rectDash.width * dpr;
-    const height = (rectDash.height * dpr) + altoBarra;
+    // Recuadro fino alrededor del dibujo
+    ctx.lineWidth = 1 * SCALE;
+    ctx.strokeStyle = '#333333';
+    ctx.strokeRect(viewX, viewY, viewW, viewH);
 
-    const masterCanvas = document.createElement('canvas');
-    masterCanvas.width = width;
-    masterCanvas.height = height;
-    const ctx = masterCanvas.getContext('2d');
+    // Recorte (Clip) para que nada se salga del marco
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(viewX, viewY, viewW, viewH);
+    ctx.clip();
 
-    const isLight = document.body.classList.contains('light-mode');
+    // DIBUJADO INTELIGENTE (INVERSIÓN DE COLOR SI ES NECESARIO)
+    const isDarkMode = !document.body.classList.contains('light-mode');
 
-    // Fondos
-    ctx.fillStyle = isLight ? '#f0f2f5' : '#000000';
-    ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = isLight ? "#e0e0e0" : "#1a1a1a";
-    ctx.fillRect(0, 0, width, altoBarra);
+    if (isDarkMode) {
+        // Truco Maestro: Invertir luminosidad pero preservar tono (aprox)
+        // O simple inversión para alto contraste en plano
+        ctx.filter = 'invert(1) hue-rotate(180deg) contrast(1.2)';
+    }
 
-    // --- TEXTOS ---
-    const textoPK = getCurrentPKText();
-    const soloFecha = new Date().toLocaleDateString();
+    if (isMulti) {
+        // Lógica Multi-Vista (Dibujar 3 paneles en grilla dentro del viewW/viewH)
+        // CSS Grid:
+        // Planta: Col 1, Row 1 (Top Left)
+        // Perfil: Col 1, Row 2 (Bottom Left)
+        // Sección: Col 2, Row 1-2 (Right Full)
+        const items = [
+            { id: 'canvasPlanta', x: 0, y: 0, w: 0.5, h: 0.5, label: 'PLANTA' },
+            { id: 'canvasPerfil', x: 0, y: 0.5, w: 0.5, h: 0.5, label: 'PERFIL' },
+            { id: 'visorCanvas', x: 0.5, y: 0, w: 0.5, h: 1, label: 'SECCIÓN' }
+        ];
 
-    // A. Título "Multi-Vista"
-    ctx.font = `bold ${16 * dpr}px Arial`;
-    ctx.fillStyle = isLight ? "#333" : "#fff";
-    ctx.textAlign = "left";
-    ctx.fillText("Multi-Vista", 20 * dpr, 26 * dpr);
+        items.forEach(item => {
+            const c = document.getElementById(item.id);
+            if (c) {
+                const ix = viewX + (item.x * viewW);
+                const iy = viewY + (item.y * viewH);
+                const iw = item.w * viewW;
+                const ih = item.h * viewH;
 
-    // B. PK
-    ctx.font = `bold ${20 * dpr}px monospace`;
-    ctx.fillStyle = isLight ? "#0056b3" : "#00fbff";
-    ctx.textAlign = "center";
-    ctx.fillText(textoPK, width / 2, 27 * dpr);
+                // Dibujar imagen ajustada (cover/contain approach simple)
+                // Aquí estiramos para llenar la celda asignada, o podríamos mantener ratio con bandas blancas
+                ctx.drawImage(c, 0, 0, c.width, c.height, ix, iy, iw, ih);
 
-    // C. Marca y Fecha (Misma lógica que arriba)
-    ctx.textAlign = "right";
-    const xRight = width - (20 * dpr);
+                // Marco interno de celda
+                ctx.strokeStyle = '#999';
+                ctx.strokeRect(ix, iy, iw, ih);
 
-    // Fecha Tenue
-    ctx.font = `${11 * dpr}px monospace`;
-    ctx.fillStyle = isLight ? "#888" : "#666";
-    ctx.fillText(soloFecha, xRight, 26 * dpr);
+                // Etiqueta de celda
+                ctx.save();
+                ctx.filter = 'none';
+                ctx.fillStyle = '#000';
+                ctx.font = `bold ${14 * SCALE}px Arial`;
+                ctx.textAlign = 'left';
+                ctx.fillText(item.label, ix + (10 * SCALE), iy + (20 * SCALE));
+                ctx.restore();
+            }
+        });
 
-    const anchoFecha = ctx.measureText(soloFecha).width;
+    } else {
+        // Lógica Vista Única (Fit Center)
+        if (sourceCanvas) {
+            // Calcular ratio para "contain" (encajar sin deformar)
+            const ratioSrc = sourceCanvas.width / sourceCanvas.height;
+            const ratioDest = viewW / viewH;
 
-    // Marca TiQAL
-    ctx.font = `bold ${14 * dpr}px Arial`;
-    ctx.fillStyle = isLight ? "#333" : "#fff";
-    ctx.fillText("TiQAL  ", xRight - anchoFecha - (10 * dpr), 26 * dpr);
+            let finalW, finalH, offX, offY;
 
-    // Pegar Paneles
-    const lienzos = [
-        { id: 'canvasPlanta' }, { id: 'canvasPerfil' }, { id: 'visorCanvas' }
-    ];
+            if (ratioSrc > ratioDest) {
+                // Más ancho que el destino
+                finalW = viewW;
+                finalH = viewW / ratioSrc;
+                offX = 0;
+                offY = (viewH - finalH) / 2;
+            } else {
+                // Más alto que el destino
+                finalH = viewH;
+                finalW = viewH * ratioSrc;
+                offX = (viewW - finalW) / 2;
+                offY = 0;
+            }
 
-    lienzos.forEach(item => {
-        const c = document.getElementById(item.id);
-        if (c) {
-            const rectC = c.getBoundingClientRect();
-            const x = (rectC.left - rectDash.left) * dpr;
-            const y = ((rectC.top - rectDash.top) * dpr) + altoBarra;
-            const w = rectC.width * dpr;
-            const h = rectC.height * dpr;
+            ctx.drawImage(sourceCanvas, 0, 0, sourceCanvas.width, sourceCanvas.height, viewX + offX, viewY + offY, finalW, finalH);
 
-            ctx.drawImage(c, 0, 0, c.width, c.height, x, y, w, h);
-
-            ctx.strokeStyle = isLight ? '#ccc' : '#333';
-            ctx.lineWidth = 2 * dpr;
-            ctx.strokeRect(x, y, w, h);
+            // Si es Planta, dibujar Flecha Norte (siempre visible)
+            if (tituloVista.includes('PLANTA')) {
+                // Dibujar una "N" simple en la esquina
+                ctx.save();
+                ctx.filter = 'none'; // Sin filtro para el símbolo norte nuevo
+                ctx.translate(viewX + viewW - (50 * SCALE), viewY + (50 * SCALE));
+                ctx.fillStyle = '#000';
+                ctx.font = `bold ${24 * SCALE}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.fillText("N", 0, (10 * SCALE));
+                // Flecha
+                ctx.beginPath();
+                ctx.moveTo(0, (-20 * SCALE));
+                ctx.lineTo((-10 * SCALE), 0);
+                ctx.lineTo((10 * SCALE), 0);
+                ctx.fill();
+                ctx.restore();
+            }
         }
-    });
+    }
 
-    descargarCanvas(masterCanvas, "Dashboard_Multi");
+    ctx.restore(); // Restaurar filtro y clip
+
+    // ----------------------------------------------------
+    // D. PIE DE PÁGINA (FOOTER)
+    // ----------------------------------------------------
+    const yFooterText = yFooterLine + (hFooter / 2);
+
+    // Obtener PK
+    const textoPK = getCurrentPKText();
+
+    ctx.fillStyle = '#000000';
+    ctx.textBaseline = 'middle';
+
+    // Columna 1: Proyecto
+    ctx.textAlign = 'left';
+    ctx.font = `bold ${16 * SCALE}px Arial`;
+    ctx.fillText("PROYECTO: CARRETERA MODELO", mOut + (30 * SCALE), yFooterText);
+
+    // Columna 2: PK (Central)
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${24 * SCALE}px Arial`;
+    ctx.fillText(textoPK, W / 2, yFooterText);
+
+    // Columna 3: Escala / Info
+    ctx.textAlign = 'right';
+    ctx.font = `${14 * SCALE}px Arial`;
+    ctx.fillText("ESCALA: S/E  |  LÁMINA: 01", W - mOut - (30 * SCALE), yFooterText);
+
+
+    // ----------------------------------------------------
+    // E. DESCARGA
+    // ----------------------------------------------------
+    descargarPlano(sheet, tituloVista);
 }
+
+// 3. UTILIDADES COMPATIBILIDAD
 
 // ============================================================
 // UTILIDADES COMPARTIDAS
@@ -1429,7 +1512,7 @@ function getCurrentPKText() {
     return `PK: ${k}+${m}`;
 }
 
-function descargarCanvas(canvas, nombreBase) {
+function descargarPlano(canvas, nombreBase) {
     try {
         // 1. Obtener PK (Solo parte entera)
         let pkStr = "General";

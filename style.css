@@ -72,6 +72,12 @@ body.light-mode {
     --canvas-bg: #ffffff;
 }
 
+body.light-mode .logo-img,
+body.light-mode .logo-large img {
+    filter: invert(1);
+    /* Logo blanco a negro */
+}
+
 body {
     margin: 0;
     background: var(--bg-dark);
